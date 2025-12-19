@@ -1,5 +1,5 @@
 {
-  "extends": "@repo/typescript-config/nextjs.json",
+  "extends": "@y-kafka-collabation-server/typescript-config/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {

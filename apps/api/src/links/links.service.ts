@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { Link, CreateLinkDto, UpdateLinkDto } from '@repo/api';
+import { Link, CreateLinkDto, UpdateLinkDto } from '@y-kafka-collabation-server/api';
 
 @Injectable()
 export class LinksService {

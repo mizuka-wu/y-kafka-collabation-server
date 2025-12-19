@@ -11,15 +11,15 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/ui": "workspace:*",
+    "@y-kafka-collabation-server/ui": "workspace:*",
     "next": "16.0.10",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@repo/api": "workspace:*",
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@y-kafka-collabation-server/api": "workspace:*",
+    "@y-kafka-collabation-server/eslint-config": "workspace:*",
+    "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",

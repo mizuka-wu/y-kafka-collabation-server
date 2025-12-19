@@ -14,8 +14,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@y-kafka-collabation-server/eslint-config": "workspace:*",
+    "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "prettier": "^3.2.5",
     "turbo": "^2.6.3"
   },

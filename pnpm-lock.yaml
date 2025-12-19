@@ -8,10 +8,10 @@ importers:
 
   .:
     devDependencies:
-      '@repo/eslint-config':
+      '@y-kafka-collabation-server/eslint-config':
         specifier: workspace:*
         version: link:packages/eslint-config
-      '@repo/typescript-config':
+      '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:packages/typescript-config
       prettier:
@@ -32,7 +32,7 @@ importers:
       '@nestjs/platform-express':
         specifier: ^11.0.0
         version: 11.1.8(@nestjs/common@11.1.8)(@nestjs/core@11.1.8)
-      '@repo/api':
+      '@y-kafka-collabation-server/api':
         specifier: workspace:*
         version: link:../../packages/api
       reflect-metadata:
@@ -54,13 +54,13 @@ importers:
       '@nestjs/testing':
         specifier: ^11.0.0
         version: 11.1.8(@nestjs/common@11.1.8)(@nestjs/core@11.1.8)(@nestjs/platform-express@11.1.8)
-      '@repo/eslint-config':
+      '@y-kafka-collabation-server/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@repo/jest-config':
+      '@y-kafka-collabation-server/jest-config':
         specifier: workspace:*
         version: link:../../packages/jest-config
-      '@repo/typescript-config':
+      '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/express':
@@ -102,7 +102,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@repo/ui':
+      '@y-kafka-collabation-server/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -115,13 +115,13 @@ importers:
         specifier: ^19.1.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@repo/api':
+      '@y-kafka-collabation-server/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@repo/eslint-config':
+      '@y-kafka-collabation-server/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@repo/typescript-config':
+      '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
@@ -146,10 +146,10 @@ importers:
         specifier: '*'
         version: 2.1.0(@nestjs/common@11.1.9)(reflect-metadata@0.2.2)
     devDependencies:
-      '@repo/eslint-config':
+      '@y-kafka-collabation-server/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@repo/typescript-config':
+      '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':
@@ -230,10 +230,10 @@ importers:
         specifier: ^19.1.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@repo/eslint-config':
+      '@y-kafka-collabation-server/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@repo/typescript-config':
+      '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':

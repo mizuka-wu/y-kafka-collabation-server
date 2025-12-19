@@ -1,5 +1,5 @@
-import type { Link } from '@repo/api';
-import { Button } from '@repo/ui/button';
+import type { Link } from '@y-kafka-collabation-server/api';
+import { Button } from '@y-kafka-collabation-server/ui/button';
 import Image, { type ImageProps } from 'next/image';
 
 import styles from './page.module.css';

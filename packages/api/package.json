@@ -1,5 +1,5 @@
 {
-  "name": "@repo/api",
+  "name": "@y-kafka-collabation-server/api",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -30,8 +30,8 @@
     "@nestjs/mapped-types": "*"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@y-kafka-collabation-server/eslint-config": "workspace:*",
+    "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.2",
