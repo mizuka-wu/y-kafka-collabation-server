@@ -47,6 +47,22 @@
    - Kafka 消费位点可作为同步 offset，避免重复/丢失。
    - 通过 `synced` 事件告知上层已追上 log。
 
+## 无状态消息流
+
+为了让每台 Socket.IO 实例都能在无状态前提下保持完全一致的消息流，设计如下：
+
+1. **单向入站**：客户端发出的 Sync/Awareness/Control 消息只会被当前 Socket.IO 服务器转发到 Kafka（`produce`），不再在本地应用或立即广播。
+2. **统一消费**：所有实例订阅 `room` 对应的 Kafka topic，在消费后通过 `ProtocolMessageCodec.decodeMessage` 应用到本地 `Y.Doc`/`Awareness`，再基于 `senderId`、`roomId/docId` 将消息推送给该实例下所有属于同一 room/subdoc 的 Socket.IO 连接。
+3. **去重策略**：消息 metadata 里带有 `senderId`，客户端可以根据该值判断是否是自己发出的重播，从而避免重复应用。
+4. **降级兼容**：当 Socket.IO 被降级成 HTTP（如 long-poll 或 SSE）时，仅保留 transport 层不带状态；消息的路由仍依赖 Kafka 的 consumer group，只是在 HTTP 请求/响应中轮询或推送 Kafka 消息。
+
+## 回放与冷启动
+
+1. **Kafka 作为唯一来源**：连接启动或重新加入集群的实例会从 Kafka 开始消费 `yjs-doc-{room}` topic。Kafka 保证每个 partition 的顺序，实例按照 offset 顺序执行 `decodeMessage`，即使是刚加入的节点也能追上无状态集群的最新状态。
+2. **CRDT 差分恢复**：Yjs 通过 `state vector` 与 `update` 机制管理缺失部分。消费者在收到 update 后会在本地 `Y.Doc` 中合并，并通过 `syncProtocol.readSyncMessage` 检测是否还需要 `SyncStep2`。如果本地缺少某些 update，服务端/其他实例可以根据 `state vector` 生成差值并继续发送（例如通过 `encodeSyncStep2`）。
+   - 当客户端 provider 为了节省性能而中断连接（例如低频 reconnect）时，它在重新连接后会先请求 SyncStep1/2。服务端/Kafka 消费者会根据 provider 上报的 state vector 判断缺失区间：若有差异，会用 `syncProtocol.writeSyncStep2` 生成补全 update，发送至 Kafka，再由 Kafka 消费循环下发给该 provider 所在的实例，由其通过 Socket.IO 转给客户端。
+3. **Fallback metadata**：每条 Kafka 消息都会附带 `roomId` 与 `docId`，consumer 优先以 `docId` 标识具体 Y.Doc 实例，如缺少 `docId` 便回退为 `roomId`，确保老旧客户端仍能与新系统共存。
+
 ## 协议消息结构
 
 原生 y-websocket 在 websocket 帧内用二进制封装消息头（message type）+ payload。我们在 Kafka 版协议中也应保持类似结构。
@@ -116,9 +132,9 @@ const decodeMessage = (buf: Uint8Array) => {
 
 通过 `src/codec` 目录的模块化实现（`types.ts`、`handlers`、`index.ts`）统一处理 y-websocket 消息，并提供 Kafka 载荷的打包/解包。  
 
-1. **Types**：`ProtocolMessageMetadata` 扩展到 `subdocId`/`note`，`ProtocolCodecContext` 维持 `doc/awareness/synced` 状态。  
+1. **Types**：`ProtocolMessageMetadata` 扩展到 `subdocId`/`note`，`ProtocolCodecContext` 维持 `doc/awareness/synced` 状态。Metadata 里同时保留 `roomId` 与 `docId`，运行时会以 `roomId ?? docId` 为 Kafka topic 的主键，`docId` 优先用于理清 `Y.Doc` 实例唯一性。这样在只有 `roomId` 时仍能回退，并且未来若一个 room 承载多个 doc 也能明确标识。  
 2. **Handlers**：`handlers/sync.ts`、`handlers/awareness.ts`、`handlers/auth.ts`、`handlers/queryAwareness.ts` 直接复用 `syncProtocol`/`awarenessProtocol`/`authProtocol`，保持与官方的 message 逻辑一致。  
-3. **Index**：`decodeMessage` 按 type 路由、`encodeSyncStep1/2`/`encodeAwareness`/`encodePermissionDenied` 层层封装，`createMetadata` + `encodeKafkaEnvelope` 把 metadata + base64 payload 按 JSON 写入 Kafka，`decodeKafkaEnvelope` 可还原。  
+3. **Index**：`decodeMessage` 按 type 路由、`encodeSyncStep1/2`/`encodeAwareness`/`encodePermissionDenied` 层层封装，`createMetadata` + `encodeKafkaEnvelope` 把 metadata + payload 按 JSON 写入 Kafka，`decodeKafkaEnvelope` 负责同时封装与还原。|
 
 旧版 `src/protocolMessageCodec.ts` 已删除，README 中的示例、Kafka metadata 说明与 Hocuspocus hook 对齐，建议使用新模块替代老文件。
 
