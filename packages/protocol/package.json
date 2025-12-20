@@ -8,14 +8,21 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "generate:component": "turbo gen react-component",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "build": "tsc -b",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "eslint": "^9.31.0",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "vitest": "^1.2.1"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@y/protocols": "^1.0.6-3",
+    "@y/y": "^14.0.0-16",
+    "lib0": "^0.2.115-6"
+  }
 }
