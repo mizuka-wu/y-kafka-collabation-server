@@ -114,15 +114,36 @@ export const encodePermissionDenied = (reason: string): Uint8Array => {
 /**
  * 将 payload + metadata 封装为 Kafka 可落盘的 JSON 字符串（base64 payload）。
  */
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+export enum KafkaEnvelopeMetadataFormat {
+  Json = 1, // metadata payload is JSON text
+}
+
+/**
+ * 将 payload + metadata 封装为 Kafka 可落盘的结构:
+ * [metadataFormat:1][metadataLength:4 little endian][metadataBytes][payloadBytes]
+ */
 export const encodeKafkaEnvelope = (
   payload: Uint8Array,
   metadata: ProtocolMessageMetadata,
 ): Uint8Array => {
-  const envelope = {
-    metadata,
-    payload: Buffer.from(payload).toString('base64'),
-  };
-  return Buffer.from(JSON.stringify(envelope));
+  const metadataJson = JSON.stringify(metadata);
+  const metadataBytes = textEncoder.encode(metadataJson);
+  const envelope = new Uint8Array(
+    1 + 4 + metadataBytes.length + payload.length,
+  );
+  const view = new DataView(
+    envelope.buffer,
+    envelope.byteOffset,
+    envelope.byteLength,
+  );
+  envelope[0] = KafkaEnvelopeMetadataFormat.Json;
+  view.setUint32(1, metadataBytes.length, true);
+  envelope.set(metadataBytes, 5);
+  envelope.set(payload, 5 + metadataBytes.length);
+  return envelope;
 };
 
 /**
@@ -131,11 +152,30 @@ export const encodeKafkaEnvelope = (
 export const decodeKafkaEnvelope = (
   buffer: Uint8Array,
 ): { metadata: ProtocolMessageMetadata; payload: Uint8Array } => {
-  const raw = new TextDecoder().decode(buffer);
-  const { metadata, payload } = JSON.parse(raw);
+  if (buffer.length < 5) {
+    throw new Error('Kafka envelope too short');
+  }
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength,
+  );
+  const format = buffer[0];
+  if (format !== KafkaEnvelopeMetadataFormat.Json) {
+    throw new Error(`Unsupported Kafka metadata format: ${format}`);
+  }
+  const metadataLength = view.getUint32(1, true);
+  const metadataStart = 5;
+  const metadataEnd = metadataStart + metadataLength;
+  if (buffer.length < metadataEnd) {
+    throw new Error('Kafka envelope metadata length mismatch');
+  }
+  const metadataBytes = buffer.subarray(metadataStart, metadataEnd);
+  const payload = buffer.subarray(metadataEnd);
+  const metadata = JSON.parse(textDecoder.decode(metadataBytes));
   return {
     metadata,
-    payload: Buffer.from(payload, 'base64'),
+    payload,
   };
 };
 
