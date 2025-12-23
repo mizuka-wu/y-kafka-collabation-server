@@ -1,5 +1,5 @@
 {
-  "name": "@y-kafka-collabation-server/bus",
+  "name": "@y-kafka-collabation-server/persistence",
   "version": "0.0.0",
   "private": true,
   "exports": {
@@ -8,22 +8,21 @@
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "generate:component": "turbo gen react-component",
     "check-types": "tsc --noEmit",
     "build": "tsc -b",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "@types/socket.io": "^4.7.4",
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "eslint": "^9.31.0",
     "typescript": "5.8.2"
   },
   "dependencies": {
-    "@y-kafka-collabation-server/protocol": "workspace:*",
-    "lib0": "^0.2.115-6",
-    "socket.io": "^4.7.2"
+    "reflect-metadata": "^0.1.13",
+    "typeorm": "^1.3.12",
+    "mysql2": "^3.3.5",
+    "@y-kafka-collabation-server/protocol": "workspace:*"
   }
 }

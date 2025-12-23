@@ -27,12 +27,19 @@
     }
   },
   "dependencies": {
-    "@nestjs/mapped-types": "*"
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/core": "^10.3.0",
+    "@nestjs/mapped-types": "*",
+    "@nestjs/microservices": "^10.3.0",
+    "@y-kafka-collabation-server/bus": "workspace:*",
+    "@y-kafka-collabation-server/persistence": "workspace:*",
+    "@y-kafka-collabation-server/protocol": "workspace:*",
+    "typeorm": "^1.3.12"
   },
   "devDependencies": {
+    "@types/node": "^22.10.7",
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
-    "@types/node": "^22.10.7",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.2",
     "typescript": "5.5.4"

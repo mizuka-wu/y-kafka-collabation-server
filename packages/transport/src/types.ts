@@ -63,7 +63,7 @@ export interface RoomRegistry {
   getSockets(roomId: string, subdocId?: string): Socket[];
 }
 
-export interface BusSocketHandlers {
+export interface TransportSocketHandlers {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
   handleClientMessage: (
     socket: Socket,
@@ -72,7 +72,7 @@ export interface BusSocketHandlers {
   handleDisconnect: (socket: Socket) => void;
 }
 
-export interface CreateBusSocketHandlersDeps {
+export interface CreateTransportSocketHandlersDeps {
   roomRegistry: RoomRegistry;
   kafkaProducer: KafkaProducer;
   protocolCodec: ProtocolCodecAdapter;
@@ -85,4 +85,8 @@ export interface StartKafkaConsumerDeps {
   protocolCodec: ProtocolCodecAdapter;
   topicResolver: TopicResolver;
   onMessageEvent?: 'protocol-message' | string;
+  onMessageProcessed?: (
+    metadata: ProtocolMessageMetadata,
+    payload: Uint8Array,
+  ) => Promise<void>;
 }

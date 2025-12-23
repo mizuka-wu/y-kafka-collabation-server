@@ -1,6 +1,6 @@
-# @y-kafka-collabation-server/bus
+# @y-kafka-collabation-server/transport
 
-`bus` 包封装了 Socket.IO 与 Kafka 之间的消息流：对外负责处理客户端的 Socket.IO 连接/事件，对内负责把 Yjs payload 交给 Kafka，并且在消费到 Kafka 事件后把消息广播给当前连接的客户端。
+`transport` 包封装了 Socket.IO 与 Kafka 之间的消息流：对外负责处理客户端的 Socket.IO 连接/事件，对内负责把 Yjs payload 交给 Kafka，并且在消费到 Kafka 事件后把消息广播给当前连接的客户端。
 
 ## 设计目标
 
