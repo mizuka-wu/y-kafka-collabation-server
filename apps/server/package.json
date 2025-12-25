@@ -1,5 +1,5 @@
 {
-  "name": "@y-kafka-collabation-server/provider",
+  "name": "@y-kafka-collabation-server/demo",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -18,7 +18,10 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
-    "@y-kafka-collabation-server/api": "workspace:*",
+    "@y-kafka-collabation-server/provider": "workspace:*",
+    "@y-kafka-collabation-server/protocol": "workspace:*",
+    "@y/y": "^14.0.0-16",
+    "@y/protocols": "^1.0.6-3",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
