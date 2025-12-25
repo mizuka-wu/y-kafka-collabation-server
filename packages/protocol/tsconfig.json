@@ -1,5 +1,5 @@
 {
-  "extends": "@y-kafka-collabation-server/typescript-config/react-library.json",
+  "extends": "@y-kafka-collabation-server/typescript-config/base.json",
   "compilerOptions": {
     "outDir": "dist"
   },
