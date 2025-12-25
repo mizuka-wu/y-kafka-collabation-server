@@ -18,6 +18,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/websockets": "^11.0.0",
     "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",

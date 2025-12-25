@@ -13,6 +13,9 @@ export class ServerCollabService implements OnModuleDestroy {
   private snapshotRepo?: Repository<DocumentSnapshot>;
   private readonly kafkaReady: Promise<void>;
   private readonly persistenceReady: Promise<void>;
+  private readonly updateListeners: Array<
+    (docId: string, payload: string) => void
+  > = [];
 
   constructor() {
     const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
@@ -65,6 +68,9 @@ export class ServerCollabService implements OnModuleDestroy {
     });
     this.enqueueMessage(docId, content);
     this.logger.log(`Published update for ${docId} to topic ${topic}`);
+    for (const listener of this.updateListeners) {
+      listener(docId, content);
+    }
     return {
       docId,
       topic,
@@ -94,6 +100,10 @@ export class ServerCollabService implements OnModuleDestroy {
       docId,
       messages: this.messages.get(docId) ?? [],
     };
+  }
+
+  registerUpdateListener(listener: (docId: string, payload: string) => void) {
+    this.updateListeners.push(listener);
   }
 
   async onModuleDestroy() {
