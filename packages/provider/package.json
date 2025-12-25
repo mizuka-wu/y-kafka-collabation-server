@@ -3,7 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./*": "./dist/*.js",
+    "./types": "./dist/types.d.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",

@@ -72,6 +72,13 @@ export interface TransportSocketHandlers {
   handleDisconnect: (socket: Socket) => void;
 }
 
+export interface CreateBusSocketHandlersDeps {
+  roomRegistry: RoomRegistry;
+  kafkaProducer: KafkaProducer;
+  protocolCodec: ProtocolCodecAdapter;
+  topicResolver: TopicResolver;
+}
+
 export interface CreateTransportSocketHandlersDeps {
   roomRegistry: RoomRegistry;
   kafkaProducer: KafkaProducer;
