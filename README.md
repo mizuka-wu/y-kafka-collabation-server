@@ -122,7 +122,18 @@ flowchart TD
 
 系统先用 persistence snapshot 提供基线，再补上 `sinceVersion` history 与 Kafka offset update；聚合后回推 transport，确保 doc/awareness/version 一致。
 
-## 5. 开发者入门 & 调试清单
+## 5. Kafka 分区能力展示与配置
+
+| 项目 | 说明 |
+| --- | --- |
+| 主题命名 | 服务端遵循 `topicFor(docId)`（目前输出 `docs-${docId}`）；生产环境可通过 `topicResolver.resolveDocTopic` 组合 `roomId`/`tenantId`/`docId` 生成 `yjs-doc-${tenant}-${room}` 等分区层级。 |
+| 分区策略 | Producer 使用 `Partitioners.LegacyPartitioner`（依据消息 key 的 hash 决定 partition），因此只需在 Kafka 端为 `docs-*` 主题创建多于 1 个 partition 即可让同一 doc 的消息按 partition 均匀分布；consumer group 每个实例消费分配的 partition。 |
+| topic 创建示例 | ```bash<br>bin/kafka-topics.sh --create --topic docs-room-42 --partitions 6 \ --replication-factor 1 --bootstrap-server localhost:9092``` |
+| consumer group | `ServerCollabService` 可通过 `KAFKA_GROUP_ID=y-kafka-transport`（或 room 级别）配置 consumer group，Kafka 会将 partition 分配给不同 consumer 实例，同时确保 `GroupInstanceId`/`GroupInstanceId` 若设置则可保留分区。 |
+| 验证分片 | ```bash<br>bin/kafka-topics.sh --describe --topic docs-room-42 --bootstrap-server localhost:9092``` 观察 partition 数量和 leader/distribution；verify consumer groups with `kafka-consumer-groups.sh --describe --group y-kafka-transport`。 |
+| 进阶 | 可在 `ServerCollabService.topicFor` 中引入 `roomId` hash 逻辑，把 doc 映射到多个 topic；也可自定义 `Partitioners.LegacyPartitioner` 替代函数以锁定 awareness/update 到特定 partition。 |
+
+## 6. 开发者入门 & 调试清单
 
 ### 环境准备
 
@@ -160,7 +171,7 @@ flowchart TD
 2. 利用 `topicResolver` 生成多租户 topic（`yjs-doc-${tenantId}-${roomId}`）。
 3. 补充 `yjs-control` channel 实现 snapshot/revalidate 命令。
 
-## 6. 参考资源
+## 7. 参考资源
 
 * [y-websocket (Yjs 官方)](https://github.com/yjs/y-websocket)
 * [@y/protocols](https://github.com/yjs/y-protocols)

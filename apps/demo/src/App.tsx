@@ -7,6 +7,10 @@ import React, {
 } from 'react';
 import * as Y from 'yjs';
 import { Awareness } from '@y/protocols/awareness';
+import {
+  ProtocolProvider,
+  ProviderStatus,
+} from '@y-kafka-collabation-server/provider';
 import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
@@ -14,19 +18,12 @@ import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror';
+import { SocketIoWebSocket } from './socketIoWebSocket';
 import './styles.css';
 
 const VITE_COLLAB_SERVER_URL =
   import.meta.env.VITE_COLLAB_SERVER_URL ?? 'http://localhost:3000';
 const DEMO_DOC_ID = 'demo-doc';
-
-const toBase64 = (buffer: Uint8Array) => {
-  let binary = '';
-  for (let i = 0; i < buffer.length; i += 1) {
-    binary += String.fromCharCode(buffer[i]);
-  }
-  return window.btoa(binary);
-};
 
 type ServerStatus = {
   docId: string;
@@ -40,20 +37,6 @@ const fetchStatus = async (baseUrl: string) => {
     throw new Error('状态请求失败');
   }
   return (await response.json()) as ServerStatus[];
-};
-
-const publishUpdate = async (
-  baseUrl: string,
-  docId: string,
-  content: string,
-) => {
-  await fetch(`${baseUrl}/collab/publish`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ docId, content }),
-  });
 };
 
 const persistSnapshot = async (
@@ -77,6 +60,10 @@ const App = () => {
   const [serverStatus, setServerStatus] = useState<ServerStatus[]>([]);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('尚未发送');
+  const [providerStatus, setProviderStatus] =
+    useState<ProviderStatus>('disconnected');
+  const [lastProviderSync, setLastProviderSync] = useState<string | null>(null);
+  const [providerLog, setProviderLog] = useState<string[]>([]);
   const featureCards = useMemo(
     () => [
       {
@@ -162,25 +149,47 @@ const App = () => {
     };
   }, [awareness, ydoc]);
 
+  const pushProviderLog = useCallback((message: string) => {
+    setProviderLog((prev) => {
+      const next = [message, ...prev];
+      return next.slice(0, 4);
+    });
+  }, []);
+
   useEffect(() => {
-    const handleUpdate = (update: Uint8Array) => {
-      const payload = toBase64(update);
-      setStatusMessage('正在推送 update');
-      publishUpdate(VITE_COLLAB_SERVER_URL, DEMO_DOC_ID, payload)
-        .then(() => {
-          setStatusMessage('Update 已推送');
-          setLastSync(new Date().toISOString());
-        })
-        .catch((error) => {
-          console.error(error);
-          setStatusMessage('推送失败');
-        });
-    };
-    ydoc.on('update', handleUpdate);
+    const providerUrl = `${VITE_COLLAB_SERVER_URL}/socket.io/?room=${DEMO_DOC_ID}`;
+    const provider = new ProtocolProvider(ydoc, {
+      url: providerUrl,
+      roomId: DEMO_DOC_ID,
+      docId: DEMO_DOC_ID,
+      WebSocketImpl: SocketIoWebSocket,
+      metadataCustomizer: (metadata) => ({
+        ...metadata,
+        version: Date.now(),
+      }),
+    });
+    provider.on('status', (value) => {
+      setProviderStatus(value);
+      pushProviderLog(`状态：${value} · ${new Date().toLocaleTimeString()}`);
+    });
+    provider.on('sync', () => {
+      setLastProviderSync(new Date().toISOString());
+      pushProviderLog(`SyncStep2 完成 · ${new Date().toLocaleTimeString()}`);
+    });
+    provider.on('awareness', (changes) => {
+      const touched = [
+        ...changes.added,
+        ...changes.updated,
+        ...changes.removed,
+      ];
+      pushProviderLog(
+        `Awareness 触发：${touched.join(', ') || 'none'} · ${new Date().toLocaleTimeString()}`,
+      );
+    });
     return () => {
-      ydoc.off('update', handleUpdate);
+      provider.destroy();
     };
-  }, [ydoc]);
+  }, [ydoc, pushProviderLog]);
 
   return (
     <div className="app-shell">
@@ -268,13 +277,22 @@ const App = () => {
           </ul>
           <div className="provider-card">
             <h3>ProtocolProvider 状态</h3>
+            <p>连接状态：{providerStatus}</p>
             <p>
-              自动重连：启用 · Metadata 自定义：可选 · Awareness 监听器：2 个
+              上次 SyncStep2：
+              {lastProviderSync
+                ? `${new Date(lastProviderSync).toLocaleTimeString()}`
+                : '尚未完成'}
             </p>
+            <div className="provider-log">
+              {providerLog.map((entry) => (
+                <span key={entry}>{entry}</span>
+              ))}
+            </div>
             <div className="provider-badges">
               <span>autoConnect</span>
               <span>awareness</span>
-              <span>permission-denied</span>
+              <span>ProtocolCodec</span>
             </div>
           </div>
         </aside>
