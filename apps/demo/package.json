@@ -1,5 +1,5 @@
 {
-  "name": "api",
+  "name": "@y-kafka-collabation-server/provider",
   "version": "0.0.0",
   "private": true,
   "scripts": {
