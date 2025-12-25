@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "@types/socket.io": "^4.7.4",
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "eslint": "^9.31.0",
