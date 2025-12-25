@@ -193,3 +193,10 @@ export const createMetadata = (
   senderId: String(doc.clientID),
   timestamp: Date.now(),
 });
+
+export type {
+  ProtocolCodecContext,
+  ProtocolMessageMetadata,
+  ProtocolMessageHandler,
+  ProtocolMessageType,
+} from './types';
