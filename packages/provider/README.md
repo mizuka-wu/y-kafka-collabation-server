@@ -40,6 +40,29 @@ provider.on('awareness', (changes) => {
 });
 ```
 
+## 4. 最小实现示例
+
+如果只是想用 `ProtocolProvider` 实现一个简单的同步客户端，可以直接在一个页面里写：
+
+```ts
+import * as Y from '@y/y';
+import { ProtocolProvider } from '@y-kafka-collabation-server/provider';
+
+const doc = new Y.Doc();
+const provider = new ProtocolProvider(doc, {
+  url: 'wss://broker.example.com/protocol',
+  roomId: 'room-42',
+  autoConnect: true,
+  reconnect: true,
+});
+
+doc.getArray('messages').observe(() => {
+  console.log('doc changed', Y.encodeStateAsUpdate(doc));
+});
+```
+
+这个例子里只要传入 `Y.Doc` 与 endpoint，`ProtocolProvider` 会自动建立 WebSocket、完成 SyncStep1、监听 `update`/`awareness` 并通过 Kafka envelope 转发，不需要额外手动打包 metadata。
+
 ## 4. 事件与生命周期
 
 | 事件 | 触发时机 | 备注 |
@@ -65,6 +88,10 @@ provider.on('awareness', (changes) => {
 
 1. 使用 `vitest` 创建 mock WebSocket (可用 simple event emitter) 来验证 `ProtocolProvider` 能否在 `SyncStep2` 返回时提交通信并设置 `synced`。  
 2. 模拟 metadata-embedded `Kafka envelope` payload，断言 `decodeMessage` 正确调用 `encodeKafkaEnvelope` 并通过 `queueMessage` 发送 reply。  
-3. 验证 `permissionDeniedHandler` 触发后 `permission-denied` 事件与 `status` 拒绝流。  
+3. 验证 `permissionDeniedHandler` 触发后 `permission-denied` 事件与 `status` 拒绝流。
 
-以上内容确保客户端可以像使用 y-websocket 的 `WebsocketProvider` 一样，对接我们的 Kafka/message 协议，事件与同步逻辑保持一致，只要关注 `roomId/docId/subdocId` metadata 与 `ProtocolCodecContext` 即可。
+## 8. 编辑器集成提示
+
+如果你的编辑器（比如搭配 `y-prosemirror`）在每次进入/退出 subdoc 时都需要重新绑定 `Y.Doc`，建议在上层维护一个生命周期管理器：进入 subdoc 时初始化 `Y.Doc + ProtocolProvider`，离开时调用 `provider.destroy()`、`doc.destroy()`、清理监听。这样可以避免一个 provider 绑多个 subdoc 的状态混乱，也方便实现“块状编辑”里频繁创建/销毁的逻辑。  
+
+这种管理不属于服务端职责，主要是给接入方一个提示；后续可以在编辑器集成仓库里补一个 demo（例如 y-prosemirror 绑定的典型用法）强调如何用 `metadataCustomizer` 或 `queueMessage` metadata 覆盖来保持 subdoc 路由一致。
