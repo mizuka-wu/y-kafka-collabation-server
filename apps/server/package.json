@@ -18,14 +18,16 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y/y": "^14.0.0-16",
     "@y/protocols": "^1.0.6-3",
     "kafkajs": "^2.2.4",
-    "mysql2": "^3.3.5",
+    "mysql2": "^3.16.0",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.28"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

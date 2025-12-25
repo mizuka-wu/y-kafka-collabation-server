@@ -1,12 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { Kafka, Producer } from 'kafkajs';
-import { createPool, Pool, RowDataPacket } from 'mysql2/promise';
-
-type SnapshotRow = {
-  doc_id: string;
-  snapshot: string;
-  updated_at: Date;
-};
+import { Kafka, Producer, Partitioners } from 'kafkajs';
+import { DataSource, Repository } from 'typeorm';
+import { DocumentSnapshot } from '@y-kafka-collabation-server/persistence';
 
 @Injectable()
 export class ServerCollabService implements OnModuleDestroy {
@@ -14,46 +9,50 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly kafka: Kafka;
   private readonly producer: Producer;
   private readonly messages = new Map<string, string[]>();
-  private readonly mysqlPool: Pool;
+  private readonly dataSource: DataSource;
+  private snapshotRepo?: Repository<DocumentSnapshot>;
   private readonly kafkaReady: Promise<void>;
-  private readonly mysqlReady: Promise<void>;
+  private readonly persistenceReady: Promise<void>;
 
   constructor() {
     const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
       .split(',')
       .map((item) => item.trim());
     this.kafka = new Kafka({ brokers });
-    this.producer = this.kafka.producer();
+    this.producer = this.kafka.producer({
+      createPartitioner: Partitioners.LegacyPartitioner,
+    });
     this.kafkaReady = this.connectKafka();
 
-    this.mysqlPool = createPool({
+    this.dataSource = new DataSource({
+      type: 'mysql',
       host: process.env.MYSQL_HOST ?? '127.0.0.1',
       port: Number(process.env.MYSQL_PORT ?? 3306),
-      user: process.env.MYSQL_USER ?? 'root',
+      username: process.env.MYSQL_USER ?? 'root',
       password: process.env.MYSQL_PASSWORD ?? '',
       database: process.env.MYSQL_DATABASE ?? 'collab',
-      waitForConnections: true,
-      connectionLimit: 5,
-      queueLimit: 0,
+      synchronize: true,
+      logging: false,
+      entities: [DocumentSnapshot],
     });
-    this.mysqlReady = this.prepareSnapshotTable();
+    this.persistenceReady = this.initializePersistence();
   }
 
   async getStatus() {
-    await Promise.all([this.kafkaReady, this.mysqlReady]);
-    const [rows] = await this.mysqlPool.query<RowDataPacket[]>(
-      'SELECT doc_id, snapshot, updated_at FROM snapshots',
-    );
-    const snapshotDocs = (rows as SnapshotRow[]).map((row) => row.doc_id);
+    await Promise.all([this.kafkaReady, this.persistenceReady]);
+    if (!this.snapshotRepo) {
+      return [];
+    }
+    const snapshots = await this.snapshotRepo.find();
     const docIds = new Set<string>([
-      ...snapshotDocs,
+      ...snapshots.map((row) => row.docId),
       ...Array.from(this.messages.keys()),
     ]);
     return Array.from(docIds).map((docId) => ({
       docId,
       kafkaMessageCount: this.messages.get(docId)?.length ?? 0,
       latestSnapshot:
-        rows.find((row) => row.doc_id === docId)?.snapshot ?? null,
+        snapshots.find((row) => row.docId === docId)?.data ?? null,
     }));
   }
 
@@ -74,13 +73,19 @@ export class ServerCollabService implements OnModuleDestroy {
   }
 
   async persistSnapshot(docId: string, snapshot: string) {
-    await this.mysqlReady;
-    await this.mysqlPool.execute(
-      `INSERT INTO snapshots (doc_id, snapshot) VALUES (?, ?)
-      ON DUPLICATE KEY UPDATE snapshot = VALUES(snapshot), updated_at = CURRENT_TIMESTAMP`,
-      [docId, snapshot],
-    );
-    this.logger.log(`Persisted snapshot for ${docId}`);
+    await this.persistenceReady;
+    if (!this.snapshotRepo) {
+      throw new Error('Persistence layer not initialized');
+    }
+    const record = this.snapshotRepo.create({
+      docId,
+      version: Date.now(),
+      timestamp: Date.now(),
+      data: snapshot,
+      storageLocation: 'server',
+    });
+    await this.snapshotRepo.save(record);
+    this.logger.log(`Persisted snapshot for ${docId} via TypeORM`);
     return { docId, persisted: true };
   }
 
@@ -95,8 +100,8 @@ export class ServerCollabService implements OnModuleDestroy {
     await this.producer.disconnect().catch((error) => {
       this.logger.warn('Kafka producer disconnect failed', error);
     });
-    await this.mysqlPool.end().catch((error) => {
-      this.logger.warn('MySQL pool shutdown failed', error);
+    await this.dataSource.destroy().catch((error) => {
+      this.logger.warn('TypeORM data source shutdown failed', error);
     });
   }
 
@@ -120,14 +125,9 @@ export class ServerCollabService implements OnModuleDestroy {
     this.logger.log('Kafka producer connected');
   }
 
-  private async prepareSnapshotTable() {
-    await this.mysqlPool.execute(
-      `CREATE TABLE IF NOT EXISTS snapshots (
-        doc_id VARCHAR(255) PRIMARY KEY,
-        snapshot LONGTEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )`,
-    );
-    this.logger.log('MySQL snapshot table ensured');
+  private async initializePersistence() {
+    await this.dataSource.initialize();
+    this.snapshotRepo = this.dataSource.getRepository(DocumentSnapshot);
+    this.logger.log('TypeORM persistence ready');
   }
 }
