@@ -1,27 +1,86 @@
 # @y-kafka-collabation-server/transport
 
-`transport` 包封装了 Socket.IO 与 Kafka 之间的消息流：对外负责处理客户端的 Socket.IO 连接/事件，对内负责把 Yjs payload 交给 Kafka，并且在消费到 Kafka 事件后把消息广播给当前连接的客户端。
+`transport` 包负责承接客户端的 Socket.IO 连接与 Kafka 消息流，肩负两项职责：一是把客户端发来的 Yjs payload 编码后 `produce` 到 Kafka，二是消费 Kafka topic、解码、按 room/subdoc 路由后广播给当前连接的 sockets。
 
-## 设计目标
+## 设计理念
 
-1. **完全无状态**：Socket.IO 仅负责输入/输出消息，所有业务状态来自 Kafka 事件流；服务节点只需根据 metadata 将消息路由到相应 room/subdoc。
-2. **可运行在 NestJS 中**：依赖注入 Kafka producer/consumer 与 Protocol codec，并向外暴露 Socket.IO handler 供 NestJS Gateway 调用。
-3. **可扩展的消费策略**：Kafka 的消费可以按 room 订阅、按 subdoc 重新路由，并通过 `roomRegistry` 维护 socket ↔ room 的映射。
+1. **完全无状态**：业务状态由 Kafka 消息流串联，Socket.IO 仅负责转发与事件通知，任何实例都可以挂入 consumer group 并基于 metadata 恢复路由信息。
+2. **协议解耦**：transport 仅关心 `ProtocolMessageMetadata` 与 encode/decode，实际的 Yjs 处理由 `@y-kafka-collabation-server/protocol` 提供，保持与 websocket 版一致。
+3. **可扩展的房间感知**：每条消息都携带 `roomId/docId/subdocId`，transport 通过 `RoomRegistry` 维护 socket ↔ room 的映射，支持按 subdoc 精准广播。
 
-## 暴露接口
+## 核心组件
 
-1. `createBusSocketHandlers(deps)`：接受 `{ roomRegistry, kafkaProducer, protocolCodec, topicResolver }`，返回 Socket.IO `connection`/`message`/`disconnect` 需要的处理函数，让 Gateway 只需在 `connection` 事件里绑定即可。
-2. `startKafkaConsumer(deps)`：接受 `{ kafkaConsumer, roomRegistry, protocolCodec, topicResolver }`，负责订阅 Kafka topic 并在 `eachMessage` 中解码、校验 metadata，然后广播给 registry 中当前在 room/subdoc 的 sockets。
-3. `RoomRegistry`：辅助类用于记录 socket ↔ room/subdoc 的映射，提供 `getSockets(roomId, subdocId?)`、`add(socket, room)`、`remove(socket)` 等方法。
+- `src/types.ts`：定义 `BusClientMessage`（携带 payload + metadata）、`KafkaMessage`、`RoomRegistry`、`CreateTransportSocketHandlersDeps`、`StartKafkaConsumerDeps` 等接口，用于解耦实际实现。
+- `src/socketHandlers.ts`：`createBusSocketHandlers` 生成 `handleConnection`/`handleClientMessage`/`handleDisconnect` 三个 hook，详细见返回逻辑（emit error、topic resolve、Kafka produce）。
+- `src/kafkaConsumer.ts`：`startKafkaConsumer` 订阅 doc/awareness topic，循环消费 `eachMessage`，调用 `protocolCodec.decodeKafkaEnvelope` 后按 `roomId`/`subdocId` 从 `RoomRegistry` 获取 sockets 并广播。
+- `src/roomRegistry.ts`：`DefaultRoomRegistry` 维护 socket assignment Map + 索引，支持按 room/subdoc 查询与自动 cleanup。
+
+## API 快速参考
+
+### 创建 Socket.IO handler
+
+```ts
+const handlers = createBusSocketHandlers({
+  roomRegistry,
+  kafkaProducer,
+  protocolCodec,
+  topicResolver,
+});
+
+io.on('connection', (socket) => {
+  const assignment = { roomId: 'room-42', subdocId: 'doc-A' };
+  handlers.handleConnection(socket, assignment);
+  socket.on('protocol-message', async (message) => {
+    await handlers.handleClientMessage(socket, message);
+  });
+  socket.on('disconnect', () => handlers.handleDisconnect(socket));
+});
+```
+
+- `handleClientMessage` 会补 `roomId`、解析 `message.channel` 决定 topic（见 `resolveTopic`），将 payload 转 `Uint8Array`，再通过 `protocolCodec.encodeKafkaEnvelope` 发给 `kafkaProducer`。
+- 请求发送失败或 metadata 缺失时会 `socket.emit('protocol:error')`，上层可以根据 `reason` 判断是否需要重连/断开。
+
+### 启动 Kafka 消费
+
+```ts
+await startKafkaConsumer({
+  kafkaConsumer,
+  roomRegistry,
+  protocolCodec,
+  topicResolver,
+  onMessageEvent: 'protocol-message',
+});
+```
+
+- 会订阅 `topicResolver.docTopicPattern ?? 'yjs-doc-*'` 与 `awarenessTopicPattern ?? 'yjs-awareness-*'`，确保带 `roomId` 的 payload 收到时广播给当前 `RoomRegistry` 缓存的 sockets。
+- 每条消息广播时会附带 `topic/partition/offset/metadata/payload`，便于客户端回放 UI 级别的调试信息。
 
 ## 使用建议
 
-1. 在 NestJS 的 Module 里注入 Kafka producer/consumer（例如使用 `@nestjs/microservices` 的 Kafka client）。
-2. 导入 `@y-kafka-collabation-server/protocol` 的 codec，利用 `encodeKafkaEnvelope`/`decodeKafkaEnvelope` 处理 payload。
-3. 在 Gateway 的 `handleConnection` 里调用 `createBusSocketHandlers` 返回的处理函数，把 `socket`、`room` 等信息传给 handler。
-4. `startKafkaConsumer` 可以在 NestJS module 的 `onModuleInit` 中启动，以确保 consumer group 与 Kafka topic 准备好。
+1. **NestJS 集成**
+   - 在 Module 中提供 `KafkaProducer`/`KafkaConsumer` 实例（如 `@nestjs/microservices` 的 Kafka client）并注入 `ProtocolCodecAdapter`。
+   - Gateway 在 `handleConnection` 调用 `createBusSocketHandlers`，并在 `onModuleInit` 时启动 `startKafkaConsumer`。
+2. **并发控制**
+   - 只保留 Kafka consumer 位点即可实现幂等；Redis/Cache 不再持久 socket 状态。
+   - `RoomRegistry` 默认仅存在内存索引，若想跨实例同步可以继承并引入 shared storage（例如 Redis pub/sub 触发 remove/add）。
+3. **Topic 策略**
+   - `topicResolver` 提供 `resolveDocTopic`/`resolveAwarenessTopic`/`resolveControlTopic` 以及可选 `docTopicPattern`/`awarenessTopicPattern`，用于自定义集群&租户的 topic 命名。
+   - 默认 `yjs-doc-{room}` 与 `yjs-awareness-{room}`，可通过 `roomId` 做多 doc 分区。
+
+## 事件流说明
+
+1. 客户端发送 `protocol-message`：transport 通过 handler 提取 metadata，保证 `roomId` 先优先于 `docId`，再把消息发往 `topicResolver.resolve*` 对应 topic。
+2. Kafka 消费：`startKafkaConsumer` 解码 Kafka envelope，校验 metadata，取 `roomId || docId` 找到 sockets，再通过 `socket.emit(onMessageEvent, {...})` 送回客户端。
+3. Disconnect：handler `handleDisconnect` 只清理 `RoomRegistry`，不依赖 Kafka；如需要广播离线事件可在 `roomRegistry` 扩展中加入 `onRemove` hook。
+
+## 可观察性和降级
+
+- 每次 `decodeKafkaEnvelope` 异常都会 `console.error('Invalid Kafka envelope', error)`，建议替换为项目统一的 logger 以便监控。
+- 拓展 `onMessageProcessed` 回调（见 `StartKafkaConsumerDeps`）可以在消息广播后记录 metrics（latency、version gap）。
+- 在 HTTP 降级场景，复用 `RoomRegistry.getSockets`，再由 controller 轮询 `kafkaConsumer` 或长轮询 `onMessageProcessed` 数据即可，不必修改 Kafka handshake。
 
 ## 拓展点
 
-- 支持 HTTP 降级（poll/SSE）时可复用 `RoomRegistry` 的 `getSockets`，自行实现轮询接口而无需改动 Kafka 消费逻辑。
-- `topicResolver` 允许覆盖默认 `yjs-doc-{room}` 命名，便于接入多个 Kafka 集群或多租户场景。
+- 支持 `topicResolver.resolveControlTopic`，就可接入 `control` channel，实现强制同步、snapshot/validate 等命令。
+- 可实现自定义 `RoomRegistry`（如 `RedisRoomRegistry`）以支持跨进程 socket 追踪，或添加 `assignment.subdocId` 记录以供 `startKafkaConsumer` 精准过滤。
+- 若要在 transport 增加认证、限流或容错，可以在 `handleClientMessage` 上层包装一层 middleware，避免污染 core handler 逻辑。

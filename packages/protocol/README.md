@@ -190,3 +190,57 @@ ws.send(syncRequest)
 2. 设计 `ProtocolProvider` 类（类似 WebsocketProvider）供客户端使用。
 3. 编写测试确保 Kafka 消费与 `Y.Doc` 更新顺序一致。
 4. 补充数据库适配层（例如 Redis/SQL 快照与持久 log）。
+
+## 代码结构概览
+
+- `src/types.ts`：定义与 y-websocket 保持一致的 `ProtocolMessageType`、metadata、`ProtocolCodecContext` 以及 handler 签名，供上层 provider/consumer 复用。
+- `src/index.ts`：核心编解码逻辑，包含 `decodeMessage`、`encodeSyncStep1|2|update|awareness` 以及 Kafka 信封的 `encodeKafkaEnvelope`/`decodeKafkaEnvelope` 实现。
+- `src/handlers/*`：`sync`、`awareness`、`auth`、`queryAwareness` 四个 handler 拆成模块，分别复用 `@y/protocols` 的官方实现，并在 `ProtocolCodecContext` 上触发状态更新与 `permissionDenied`。
+- `src/__tests__/codec.test.ts`：使用 Vitest 验证 codec 编解码流程，确保 metadata + payload 的 round-trip 与 `ProtocolMessageType` 的处理顺序。
+
+## 核心 API 快速参考
+
+### 解码 / 编码
+
+```ts
+const reply = decodeMessage(context, incomingPayload, true);
+```
+
+- `decodeMessage`：将 Kafka/Base64 payload 反序列化为 `ProtocolMessageType` 并调用对应 handler；如果 handler 需要返回 SyncStep2 等回复，它会把 encoder 内容作为 `Uint8Array` 返回，上层 provider 负责重新发送。
+- `encodeSyncStep1` / `encodeSyncStep2` / `encodeUpdate`：保持 y-websocket 的格式编码同步信息，便于直接复用 `syncProtocol`.
+- `encodeAwareness` / `encodeQueryAwareness`：将 Awareness 状态序列化为 `messageAwareness` 格式；`encodeQueryAwareness` 复用 Awareness 编码即可。
+- `encodePermissionDenied`：在鉴权失败时告知客户端 `messageAuth`。
+
+### Kafka Envelope
+
+```ts
+const envelope = encodeKafkaEnvelope(payload, metadata);
+const { payload, metadata } = decodeKafkaEnvelope(envelope);
+```
+
+- `encodeKafkaEnvelope`：把 metadata 序列化为 JSON，再拼接 payload，前 5 字节包含格式 + metadata 长度，方便 Kafka 消息直接落盘。
+- `decodeKafkaEnvelope`：校验长度、格式，解析 metadata 与原始 Yjs 二进制，可抛出错误供消费层记录。
+- `createMetadata`：辅助生成包含 `roomId/docId/subdocId/senderId/timestamp` 的 metadata，保持 provider 与 transport 之间一致性。
+
+## 集成指南
+
+1. 在 Kafka 生产者/Socket 处理链中注入 `ProtocolCodecAdapter`（`encodeKafkaEnvelope`/`decodeKafkaEnvelope`），以便统一落盘与恢复。
+2. 上下游使用 `ProtocolCodecContext`：`doc`/`awareness` 实例需由 `@y/y` 与 `@y/protocols/awareness` 创建，`setSynced` 由调用方实现以便 `sync` 完成后触发 `synced` 事件。
+3. 如果要复用 `protocol` package 提供的 codec，可以直接 `import { decodeMessage, encodeAwareness } from '@y-kafka-collabation-server/protocol';` 结合 NestJS provider 注入。
+
+## 运行与测试
+
+- `npm run lint`：通过 `eslint`（`@y-kafka-collabation-server/eslint-config`）检查。
+- `npm run check-types` / `npm run build`：`tsc -b` 生成 `dist`，供其他 workspace package 引用。
+- `npm run test`：Vitest 运行 `src/__tests__/codec.test.ts`，确保 Yjs 编解码与 metadata round-trip。
+
+## 依赖与兼容
+
+- 核心依赖：`@y/y`、`@y/protocols`、`lib0`，保持与 upstream yjs 版本同步以便 二进制兼容。
+- 构建输出位于 `dist/*.js`，package exports 已按路径映射，确保 `transport`/`persistence` 能直接引入。
+
+## 术语与一致性约定
+
+- 所有 metadata 必须包含 `roomId`（优先）或 `docId`，用于在 Kafka consumer 端定位房间。
+- `senderId` 通常取 `doc.clientID`，用于去重 `awareness` 与 `doc` 消息的自回放。
+- `version` 字段由上层持有（如 persistence coordinator），用于快照与 delta 的顺序。

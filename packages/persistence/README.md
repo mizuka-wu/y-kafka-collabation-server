@@ -1,25 +1,51 @@
 # @y-kafka-collabation-server/persistence
 
-`persistence` 包负责将 Kafka 事件流落盘，聚焦于 `Y.Doc` 快照、update history、无 GC 历史导出与 object storage 归档。核心能力包括：
+`persistence` 包负责将 Kafka 事件流落盘，聚焦于 `Y.Doc` 快照、update history、无 GC 历史导出和 object storage 归档，目标是为无状态 Kafka 消费者提供可重放、可审计的状态恢复能力。
 
-1. **TypeORM 实体**：`DocumentSnapshot`（`docId`、`version`、`timestamp`、`storageLocation`、base64 `data`）和 `UpdateHistory`（记录每条操作的 `metadata`/`payload`，便于按版本导出）。
-2. **PersistenceAdapter 接口**：定义 `loadLatestSnapshot`、`persistSnapshot`、`persistUpdate`、`exportHistory`，让 Kafka consumer 或 `bus` 通过 DI 注入不同落库实现。
-3. **TypeOrmPersistenceAdapter**：把 `Y.Doc` binary 转 Base64、记录 snapshot/history、支持 `historyOnly` 参数和 `sinceVersion` 查询。
+## 目标与职责
 
-## 结构
+1. 提供统一的 `PersistenceAdapter` 接口（见 `src/types.ts`），让不同存储实现（关系型、对象存储、对象式 key-value）都可以被 `PersistenceCoordinator` 调用。
+2. 先写入 `DocumentSnapshot`（Y.Doc 二进制快照）再附带 `UpdateHistory`（audit log），以 `version`/`docId`+`subdocId` 形式提供顺序回放。
+3. 为新节点/无状态实例提供 `loadLatestSnapshot` + `exportHistory` 流程，支持 `sinceVersion` 的增量补全。
 
-- `src/types.ts`：TypeORM entity、metadata 定义及 `PersistenceAdapter` interface。
-- `src/adapter.ts`：`TypeOrmPersistenceAdapter` 实现，封装 Base64 转换、snapshot/history 保持、history 查询逻辑。
-- `README.md`：描述 persistence 的角色与使用指引。
+## 目录结构
 
-## 使用建议
+- `src/types.ts`：TypeORM 实体定义（`DocumentSnapshot`、`UpdateHistory`）、`PersistenceMetadata`、`PersistenceAdapter` 以及 `PersistenceDocId` 等基础类型。
+- `src/adapter.ts`：`TypeOrmPersistenceAdapter`，负责将 `Y.Doc` binary 转 Base64 存入 `document_snapshots`、`update_history` 表，并支持 `historyOnly`、`sinceVersion` 查询。
+- `src/coordinator.ts`：`PersistenceCoordinator` 封装 adapter，提供 recover/persist/export 等常用 API，供上层 Kafka consumer/Kafka bus 直接注入。
+- `src/integration.ts`：提供 `createPersistenceCoordinator` 与 `buildPersistenceProviders`，方便在 NestJS 中构建 `PERSISTENCE_COORDINATOR` provider。
+- `README.md`：说明角色、使用建议与扩展方向。
 
-1. NestJS 初始化阶段连接 MySQL（或其它 TypeORM 支持的数据库），创建 `TypeOrmPersistenceAdapter` 并注入 Kafka consumer/`bus`。
-2. Kafka 消费 `doc`/`awareness` 消息时调用 `persistUpdate`，必要时设置 `historyOnly` 只写 history；依据 `metadata.version` 每 N 次触发 `persistSnapshot` 生成基线 snapshot 并更新 `storageLocation`（指向 MinIO/OSS）。
-3. 新节点/重连时先调用 `loadLatestSnapshot` 恢复到最近版本，再用 `exportHistory(sinceVersion)` 补全低于该版本的 Kafka delta，恢复至最新状态，类似 `SyncStep2` 补全机制。
-4. 导出历史 `.ydoc` 文件时，直接读取 `DocumentSnapshot.data`（Base64）并上传 object storage，同时记录 `storageLocation` 以便追踪。
+## API 快速参考
 
-## 扩展方向
+```ts
+const coordinator = createPersistenceCoordinator(dataSource)
 
-- 可以添加 `SnapshotScheduler` 订阅 Kafka timestamp，按周期生成最新 snapshot 并上传到 MinIO。
-- 未来还可实现 `MinioStorageAdapter` 或 `S3StorageAdapter`，将 `storageLocation` 关联至对象存储中的 binary 文件，保持无 GC 的历史归档。
+await coordinator.persistUpdate(metadata, binary)
+await coordinator.persistSnapshot(metadata, binary)
+
+const snapshot = await coordinator.recoverSnapshot(docId, subdocId)
+const history = await coordinator.exportHistory(docId, subdocId, sinceVersion)
+```
+
+核心依赖：`typeorm`、`reflect-metadata`、`mysql2`（可替换为任意 TypeORM 支持的 database），并将 `@y-kafka-collabation-server/protocol` metadata 作为前后端协作的统一 schema。
+
+## 使用流程建议
+
+1. 初始化阶段在 NestJS Module 中构造 `DataSource`（MySQL/PostgreSQL/Mongo）并调用 `createPersistenceCoordinator` 导出 `PERSISTENCE_COORDINATOR` provider。
+2. Kafka consumer（或其他 bus）每次拉到 doc/awareness update 时：
+   - 调用 `persistUpdate(metadata, binary, historyOnly)`，将 metadata（含 `docId`/`roomId`/`subdocId`/`version`）写入 `update_history`。
+   - 根据策略（如每 50 条 update）再执行一次 `persistSnapshot`，更新 `document_snapshots` 中的 `storageLocation` 便于指向 MinIO/OSS。
+3. 新节点或重连时，先执行 `recoverSnapshot` 加载最新 snapshot，随后 `exportHistory`（`sinceVersion` 传入此 snapshot 的 version）以 `SyncStep2` 补全剩余 delta。
+4. 需要对外导出 `.ydoc` 历史时，直接读取 `DocumentSnapshot.data`（Base64）并上传 object storage，同时记录 `storageLocation` 便于追踪和合规。
+
+## NestJS 集成要点
+
+- 提供 `buildPersistenceProviders(dataSourceToken)`，可将 `PERSISTENCE_COORDINATOR` 注入至任何需要的 provider。
+- `TypeOrmPersistenceAdapter` 通过 `DataSource.getRepository()` 拿到 `DocumentSnapshot`/`UpdateHistory`，任何自定义 adapter 也只需实现 `PersistenceAdapter` 即可替换。
+- 推荐搭配 `KafkaConsumer` 以事件驱动方式调用 `persistUpdate`，可在 `onModuleInit` 中消费 Kafka topic 。
+
+## 拓展方向
+
+- 可以添加独立的 `SnapshotScheduler` 监听 Kafka timestamp，在指定间隔内强制 snapshot 并同步至对象存储。
+- 可实现 `MinioStorageAdapter` / `S3StorageAdapter`，将 metadata 中的 `storageLocation` 关联到外部对象存储中的二进制文件，实现无 GC 的历史归档。
