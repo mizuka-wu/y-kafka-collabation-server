@@ -1,3 +1,22 @@
 {
-  "extends": "@y-kafka-collabation-server/typescript-config/base.json"
+  "extends": "@y-kafka-collabation-server/typescript-config/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@y-kafka-collabation-server/protocol": [
+        "packages/protocol/src/index.ts"
+      ],
+      "@y-kafka-collabation-server/protocol/*": ["packages/protocol/src/*"],
+      "@y-kafka-collabation-server/transport": [
+        "packages/transport/src/index.ts"
+      ],
+      "@y-kafka-collabation-server/transport/*": ["packages/transport/src/*"],
+      "@y-kafka-collabation-server/persistence": [
+        "packages/persistence/src/index.ts"
+      ],
+      "@y-kafka-collabation-server/persistence/*": [
+        "packages/persistence/src/*"
+      ]
+    }
+  }
 }

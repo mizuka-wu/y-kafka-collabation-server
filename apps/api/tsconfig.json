@@ -1,7 +1,0 @@
-{
-  "extends": "@y-kafka-collabation-server/typescript-config/nestjs.json",
-  "compilerOptions": {
-    "baseUrl": "./",
-    "outDir": "./dist"
-  }
-}
