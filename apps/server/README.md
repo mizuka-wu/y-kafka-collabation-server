@@ -32,6 +32,40 @@
 
 这个 demo/server 组合展示了 provider 如何在客户端与服务端 Kafka 架构之间打通，同时 server 端还能序列化保存 snapshot（模拟 MySQL）。
 
+## 运行前提
+
+| 变量 | 默认 | 描述 |
+| --- | --- | --- |
+| `KAFKA_BROKERS` | `localhost:9092` | Kafka 集群地址，可传递多个 host，逗号分隔。 |
+| `MYSQL_HOST` | `127.0.0.1` | MySQL 服务器地址。 |
+| `MYSQL_PORT` | `3306` | MySQL 端口。 |
+| `MYSQL_USER` | `root` | MySQL 用户名。 |
+| `MYSQL_PASSWORD` | `(空)` | MySQL 密码。 |
+| `MYSQL_DATABASE` | `collab` | 存储 snapshot 的数据库名称。 |
+
+服务启动前请确保 Kafka 和 MySQL 已经运行，可让本地出具的 Kafka 服务监听 `KAFKA_BROKERS`，MySQL 对应账户拥有 `CREATE TABLE` 和 `INSERT` 权限。
+
+## 环境变量配置
+
+`apps/server` 直接从 `process.env` 读取上方表格中的变量。推荐在项目根目录或 `apps/server` 下创建一个 `.env` 文件（该文件可由 `dotenv` 在启动脚本中加载）并只填写你需要覆盖的字段，例如：
+
+```
+KAFKA_BROKERS=localhost:9092
+MYSQL_HOST=127.0.0.1
+MYSQL_USER=root
+MYSQL_DATABASE=collab
+```
+
+如果不设置任何变量，服务会使用表格里列出的本地默认值，因此你可以先在本地启动 Kafka/MySQL 并直接运行 `pnpm --filter @y-kafka-collabation-server/server dev`。
+
+## 启动流程
+
+1. 启动 Kafka 与 MySQL（user 提供的机器即可）。
+2. 在 `apps/server` 中：`pnpm --filter @y-kafka-collabation-server/server dev`。
+3. 通过 `apps/demo` 中的 `ProtocolProvider` 客户端调用上述 `collab` 接口，或直接用 HTTP 工具调用 `POST /collab/publish`/`POST /collab/persist` 来模拟 provider 行为。
+
+这样就能在真实 Kafka topic 与 MySQL snapshot 表之间观察到来自 editor 的数据流动。
+
 ### 依赖提示
 
 `apps/server` 依赖 `@y-kafka-collabation-server/provider`、`@y-kafka-collabation-server/protocol` 等包，务必在 `packages/*` 构建后再运行，否则 `tsc`/`nest` 可能报找不到模块。

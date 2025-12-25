@@ -1,100 +1,133 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Kafka, Producer } from 'kafkajs';
+import { createPool, Pool, RowDataPacket } from 'mysql2/promise';
 
-type MessageRecord = {
-  payload: string;
-  createdAt: number;
+type SnapshotRow = {
+  doc_id: string;
+  snapshot: string;
+  updated_at: Date;
 };
 
-class KafkaSimulator {
-  private readonly logger = new Logger(KafkaSimulator.name);
-  private readonly topics = new Map<string, MessageRecord[]>();
-
-  publish(docId: string, payload: string): MessageRecord {
-    const record: MessageRecord = {
-      payload,
-      createdAt: Date.now(),
-    };
-    if (!this.topics.has(docId)) {
-      this.topics.set(docId, []);
-    }
-    this.topics.get(docId)!.push(record);
-    this.logger.log(`Kafka publish: doc=${docId}, size=${payload.length}`);
-    return record;
-  }
-
-  getTopic(docId: string): MessageRecord[] {
-    return this.topics.get(docId) ?? [];
-  }
-
-  listDocs(): string[] {
-    return Array.from(this.topics.keys());
-  }
-}
-
-class MySqlSimulator {
-  private readonly logger = new Logger(MySqlSimulator.name);
-  private readonly snapshots = new Map<string, string>();
-
-  save(docId: string, snapshot: string) {
-    this.logger.log(
-      `MySQL store: doc=${docId}, snapshotSize=${snapshot.length}`,
-    );
-    this.snapshots.set(docId, snapshot);
-    return {
-      docId,
-      snapshot,
-      createdAt: Date.now(),
-    };
-  }
-
-  fetch(docId: string) {
-    return this.snapshots.get(docId);
-  }
-
-  listDocs(): string[] {
-    return Array.from(this.snapshots.keys());
-  }
-}
-
 @Injectable()
-export class ServerCollabService {
+export class ServerCollabService implements OnModuleDestroy {
   private readonly logger = new Logger(ServerCollabService.name);
-  private readonly kafka = new KafkaSimulator();
-  private readonly mysql = new MySqlSimulator();
+  private readonly kafka: Kafka;
+  private readonly producer: Producer;
+  private readonly messages = new Map<string, string[]>();
+  private readonly mysqlPool: Pool;
+  private readonly kafkaReady: Promise<void>;
+  private readonly mysqlReady: Promise<void>;
 
-  getStatus() {
+  constructor() {
+    const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
+      .split(',')
+      .map((item) => item.trim());
+    this.kafka = new Kafka({ brokers });
+    this.producer = this.kafka.producer();
+    this.kafkaReady = this.connectKafka();
+
+    this.mysqlPool = createPool({
+      host: process.env.MYSQL_HOST ?? '127.0.0.1',
+      port: Number(process.env.MYSQL_PORT ?? 3306),
+      user: process.env.MYSQL_USER ?? 'root',
+      password: process.env.MYSQL_PASSWORD ?? '',
+      database: process.env.MYSQL_DATABASE ?? 'collab',
+      waitForConnections: true,
+      connectionLimit: 5,
+      queueLimit: 0,
+    });
+    this.mysqlReady = this.prepareSnapshotTable();
+  }
+
+  async getStatus() {
+    await Promise.all([this.kafkaReady, this.mysqlReady]);
+    const [rows] = await this.mysqlPool.query<RowDataPacket[]>(
+      'SELECT doc_id, snapshot, updated_at FROM snapshots',
+    );
+    const snapshotDocs = (rows as SnapshotRow[]).map((row) => row.doc_id);
     const docIds = new Set<string>([
-      ...this.kafka.listDocs(),
-      ...this.mysql.listDocs(),
+      ...snapshotDocs,
+      ...Array.from(this.messages.keys()),
     ]);
     return Array.from(docIds).map((docId) => ({
       docId,
-      kafkaMessages: this.kafka.getTopic(docId).length,
-      latestSnapshot: this.mysql.fetch(docId),
+      kafkaMessageCount: this.messages.get(docId)?.length ?? 0,
+      latestSnapshot:
+        rows.find((row) => row.doc_id === docId)?.snapshot ?? null,
     }));
   }
 
-  publishUpdate(docId: string, content: string) {
-    const record = this.kafka.publish(docId, content);
-    this.logger.debug(`Published update for ${docId}`);
+  async publishUpdate(docId: string, content: string) {
+    await this.kafkaReady;
+    const topic = this.topicFor(docId);
+    await this.producer.send({
+      topic,
+      messages: [{ value: content }],
+    });
+    this.enqueueMessage(docId, content);
+    this.logger.log(`Published update for ${docId} to topic ${topic}`);
     return {
       docId,
-      record,
+      topic,
+      content,
     };
   }
 
-  persistSnapshot(docId: string, snapshot: string) {
-    const stored = this.mysql.save(docId, snapshot);
-    return {
-      docId,
-      stored,
-    };
+  async persistSnapshot(docId: string, snapshot: string) {
+    await this.mysqlReady;
+    await this.mysqlPool.execute(
+      `INSERT INTO snapshots (doc_id, snapshot) VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE snapshot = VALUES(snapshot), updated_at = CURRENT_TIMESTAMP`,
+      [docId, snapshot],
+    );
+    this.logger.log(`Persisted snapshot for ${docId}`);
+    return { docId, persisted: true };
   }
 
   getMessages(docId: string) {
     return {
       docId,
-      messages: this.kafka.getTopic(docId),
+      messages: this.messages.get(docId) ?? [],
     };
+  }
+
+  async onModuleDestroy() {
+    await this.producer.disconnect().catch((error) => {
+      this.logger.warn('Kafka producer disconnect failed', error);
+    });
+    await this.mysqlPool.end().catch((error) => {
+      this.logger.warn('MySQL pool shutdown failed', error);
+    });
+  }
+
+  private enqueueMessage(docId: string, content: string) {
+    if (!this.messages.has(docId)) {
+      this.messages.set(docId, []);
+    }
+    const record = this.messages.get(docId)!;
+    record.push(content);
+    if (record.length > 20) {
+      record.shift();
+    }
+  }
+
+  private topicFor(docId: string) {
+    return `docs-${docId}`;
+  }
+
+  private async connectKafka() {
+    await this.producer.connect();
+    this.logger.log('Kafka producer connected');
+  }
+
+  private async prepareSnapshotTable() {
+    await this.mysqlPool.execute(
+      `CREATE TABLE IF NOT EXISTS snapshots (
+        doc_id VARCHAR(255) PRIMARY KEY,
+        snapshot LONGTEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+    );
+    this.logger.log('MySQL snapshot table ensured');
   }
 }

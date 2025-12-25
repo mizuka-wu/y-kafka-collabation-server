@@ -22,6 +22,8 @@
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y/y": "^14.0.0-16",
     "@y/protocols": "^1.0.6-3",
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.3.5",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
