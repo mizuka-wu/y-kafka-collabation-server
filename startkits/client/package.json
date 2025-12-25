@@ -1,5 +1,5 @@
 {
-  "name": "@y-kafka-collabation-server/transport",
+  "name": "@y-kafka-collabation-server/client",
   "version": "0.0.0",
   "private": true,
   "exports": {
