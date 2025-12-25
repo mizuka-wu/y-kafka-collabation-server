@@ -81,6 +81,12 @@ await startKafkaConsumer({
 
 ## 拓展点
 
+- **连接与 Kafka 订阅策略**
+  - 所有 Socket.IO 实例都可以使用同一组 topic pattern（如 `yjs-doc-*`/`yjs-awareness-*`）订阅，Kafka consumer group 会自动在实例之间分配 partition，避免每台服务器都处理相同消息，从而不会引发“消息风暴”。
+  - `startKafkaConsumer` 只需在每台实例启动一次，不需要 per-room subscribe；metadata 里的 `roomId/docId/subdocId` 用于在 `RoomRegistry` 里查找本实例实际持有的 sockets，再决定是否发射，避免无关的广播与判断。
+  - 若希望限制每台实例负责的 room，可以自定义 `TopicResolver` 的 pattern/策略，例如将 topic 按租户、cluster 或 `roomId hash` 映射到不同的 consumer group，或扩展 `RoomRegistry` 让多个实例协同管理同一 room 的 sockets。
+  - 通过 `metadata.senderId` 与 `version` 可以过滤自回放与重复消息，配合 protobuf/JSON metadata 保持连接层幂等，防止 Socket.IO loop-back。
+
 - 支持 `topicResolver.resolveControlTopic`，就可接入 `control` channel，实现强制同步、snapshot/validate 等命令。
 - 可实现自定义 `RoomRegistry`（如 `RedisRoomRegistry`）以支持跨进程 socket 追踪，或添加 `assignment.subdocId` 记录以供 `startKafkaConsumer` 精准过滤。
 - 若要在 transport 增加认证、限流或容错，可以在 `handleClientMessage` 上层包装一层 middleware，避免污染 core handler 逻辑。
