@@ -1,0 +1,305 @@
+{
+    "repo_notes": [
+        {
+            "content": "A Kafka-based collaborative editing server architecture using Yjs. It decouples the transport layer (Socket.IO) from the state using Kafka as the central message bus, enabling stateless horizontal scaling, reliable message ordering, and separate persistence services."
+        }
+    ],
+    "pages": [
+        {
+            "title": "Overview",
+            "purpose": "Introduce the y-kafka-collabation-server repository, explaining its purpose as a Kafka-based collaborative editing platform using Yjs, and provide a high-level summary of its architecture and components",
+            "page_notes": [
+                {
+                    "content": "The project serves as a scalable backend for real-time collaboration. By using Kafka as the unique bus, it provides stateless synchronization, aggregatable distribution, and full chain replayability. It supports Yjs/Socket.IO scenarios where transport servers are stateless and persistence is decoupled."
+                }
+            ]
+        },
+        {
+            "title": "Architecture",
+            "purpose": "Explain the core architectural principles of the system, including Kafka as the sole message bus, stateless transport design, and the overall data flow",
+            "page_notes": [
+                {
+                    "content": "The architecture separates concerns into Transport, Protocol, and Persistence packages. The core principle is that all collaborative interactions (updates, awareness) flow through Kafka. Clients connect to stateless Transport servers, which forward messages to Kafka. Other Transport instances consume these messages to broadcast to their local clients, ensuring eventual consistency without direct server-to-server clustering."
+                }
+            ]
+        },
+        {
+            "title": "Kafka as Central Message Bus",
+            "purpose": "Detail how Kafka serves as the single source of truth for all collaborative operations, replacing direct server-to-server communication with topic-based message passing",
+            "parent": "Architecture",
+            "page_notes": [
+                {
+                    "content": "Kafka replaces traditional Redis Pub/Sub or sticky-session clustering. It acts as the single source of truth for message ordering and distribution. 'Transport' instances produce updates to topics like 'yjs-doc-{room}' and consume them to broadcast. This ensures that even if a client reconnects to a different server, they receive the correct stream of updates."
+                }
+            ]
+        },
+        {
+            "title": "Stateless Transport Layer",
+            "purpose": "Explain how transport instances maintain no business state, only ephemeral socket-to-room mappings, enabling horizontal scaling without coordination",
+            "parent": "Architecture",
+            "page_notes": [
+                {
+                    "content": "Transport servers do not hold the Y.Doc state in memory for long-term logic. They maintain only ephemeral 'RoomRegistry' mappings (socket <-> room). This allows any server instance to handle any client connection. Messages are routed purely based on metadata in the Kafka message, allowing the transport layer to scale horizontally without complex state synchronization."
+                }
+            ]
+        },
+        {
+            "title": "Message Protocol and Encoding",
+            "purpose": "Describe the Kafka Envelope format that wraps Yjs protocol messages with metadata for routing, versioning, and auditability",
+            "parent": "Architecture",
+            "page_notes": [
+                {
+                    "content": "The system uses a custom 'Kafka Envelope' to wrap standard Yjs sync/awareness messages. This envelope adds critical metadata (room ID, document ID, version, sender ID) to the binary payload. This allows consumers to route and process messages without parsing the inner Yjs binary, and supports features like echo suppression and audit logging."
+                }
+            ]
+        },
+        {
+            "title": "Persistence and State Recovery",
+            "purpose": "Explain the dual-storage approach using Kafka topics for real-time streams and MySQL for snapshots and update history, enabling cold-start recovery",
+            "parent": "Architecture",
+            "page_notes": [
+                {
+                    "content": "Persistence is handled by a dedicated service (or consumer) that reads from Kafka. It implements a dual-storage strategy: 'DocumentSnapshot' (full Y.Doc binary) for fast loading, and 'UpdateHistory' (incremental updates) for replay. Recovery involves loading the latest snapshot and replaying updates from that version onwards."
+                }
+            ]
+        },
+        {
+            "title": "Core Packages",
+            "purpose": "Overview of the four core packages (protocol, provider, transport, persistence) that form the foundation of the system, their responsibilities, and interdependencies",
+            "page_notes": [
+                {
+                    "content": "The monorepo is divided into four main packages: 'protocol' (shared types and codec logic), 'provider' (client-side library for connecting to the server), 'transport' (server-side logic for Socket.IO and Kafka bridging), and 'persistence' (database storage and recovery logic)."
+                }
+            ]
+        },
+        {
+            "title": "Protocol Package",
+            "purpose": "Document the protocol package's role in defining message types, the Kafka Envelope format, encoding/decoding functions, and message handlers",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Located in 'packages/protocol', this package defines the contract for system communication. It provides the 'ProtocolCodecContext' to manage Y.Doc state, implements handlers for Sync, Awareness, and Auth messages, and utilities for encoding/decoding the Kafka Envelope. It ensures binary compatibility with standard y-websocket protocols."
+                }
+            ]
+        },
+        {
+            "title": "Message Types and Handlers",
+            "purpose": "Detail the four protocol message types (Sync, Awareness, Auth, QueryAwareness) and their corresponding handlers",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Supports 4 message types: Type 0 (Sync - Step 1 & 2 for document synchronization), Type 1 (Awareness - for user presence), Type 2 (Auth - for permission handling), and QueryAwareness. Handlers logic resides in 'src/handlers/*' and mimics the official y-websocket behavior but adapted for the Kafka pipeline."
+                }
+            ]
+        },
+        {
+            "title": "Kafka Envelope Format",
+            "purpose": "Explain the structure of Kafka envelopes including the 5-byte header, JSON metadata, and binary payload",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "The envelope format is: [Header (5 bytes)] + [Metadata Length (VarUint)] + [Metadata JSON] + [Payload Binary]. The header identifies the message format. Metadata provides routing info. The payload is the raw Yjs update or awareness message. This structure allows efficient routing by consumers without full deserialization."
+                }
+            ]
+        },
+        {
+            "title": "Metadata System",
+            "purpose": "Document the metadata fields (roomId, docId, subdocId, version, senderId, timestamp) and their purposes for routing and auditability",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Metadata fields are crucial for stateless operation: 'roomId' determines the Kafka topic; 'docId' identifies the Y.Doc; 'subdocId' allows granular routing within a connection; 'version' orders updates for persistence; 'senderId' allows clients to ignore their own echoed messages; 'timestamp' is used for auditing."
+                }
+            ]
+        },
+        {
+            "title": "Provider Package",
+            "purpose": "Document the ProtocolProvider class that serves as the client-side abstraction for Yjs collaboration over WebSockets",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Located in 'packages/provider', this package offers 'ProtocolProvider', a drop-in replacement for 'WebsocketProvider'. It handles the client-side of the protocol, managing the WebSocket connection, encoding updates into envelopes, and applying incoming updates to the local Y.Doc."
+                }
+            ]
+        },
+        {
+            "title": "ProtocolProvider API",
+            "purpose": "Detail the ProtocolProvider constructor, methods (connect, disconnect, destroy), events (status, sync, awareness), and configuration options",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Key API: 'new ProtocolProvider(doc, { url, roomId, ... })'. Methods include 'connect()', 'disconnect()', and 'destroy()'. It emits events like 'status' (connection change), 'sync' (document synced), and 'awareness' (peer updates). Configuration allows setting auto-connect and reconnection strategies."
+                }
+            ]
+        },
+        {
+            "title": "Connection Lifecycle",
+            "purpose": "Explain the state machine (disconnected, connecting, connected, syncing, synced, denied) and automatic reconnection logic",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "The provider manages connection states: 'disconnected' -> 'connecting' -> 'connected'. Once connected, it performs the sync handshake ('syncing' -> 'synced'). It handles 'permission-denied' errors by closing the connection and supports automatic exponential backoff reconnection for network issues."
+                }
+            ]
+        },
+        {
+            "title": "Metadata Customization",
+            "purpose": "Describe how the metadataCustomizer callback allows injecting custom business fields into messages",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Developers can provide a 'metadataCustomizer' callback in the provider options. This allows injecting custom fields (e.g., user roles, tracing IDs, application versions) into the ProtocolMessageMetadata before the message is encoded and sent to the server."
+                }
+            ]
+        },
+        {
+            "title": "Transport Package",
+            "purpose": "Document the transport layer that bridges Socket.IO connections to Kafka topics, including socket handlers and consumer setup",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Located in 'packages/transport', this package contains the server-side logic to bridge Socket.IO and Kafka. It implements the 'createBusSocketHandlers' to accept client messages and 'startKafkaConsumer' to broadcast Kafka messages back to clients."
+                }
+            ]
+        },
+        {
+            "title": "Socket Handlers",
+            "purpose": "Explain createBusSocketHandlers function, handling connection, client messages, and disconnection events",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "'createBusSocketHandlers' provides the Socket.IO event listeners. 'handleConnection' registers the socket in the RoomRegistry. 'handleClientMessage' decodes the incoming message, validates metadata, and produces it to the appropriate Kafka topic. 'handleDisconnect' removes the socket from the registry."
+                }
+            ]
+        },
+        {
+            "title": "RoomRegistry",
+            "purpose": "Detail the RoomRegistry component that maintains socket-to-room mappings for precise message broadcasting",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "An in-memory component that maps 'roomId' and 'subdocId' to active Socket.IO socket instances. When the Kafka consumer receives a message, it queries the RoomRegistry to find which local sockets should receive that message, ensuring targeted broadcasting."
+                }
+            ]
+        },
+        {
+            "title": "Kafka Consumer Integration",
+            "purpose": "Explain startKafkaConsumer function, topic subscription patterns, and consumer group coordination",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "'startKafkaConsumer' sets up the Kafka consumer. It subscribes to topics matching patterns like 'yjs-doc-*'. It uses Consumer Groups to ensure that partitions are distributed across available transport instances. Incoming messages are decoded and passed to the RoomRegistry for broadcasting."
+                }
+            ]
+        },
+        {
+            "title": "Topic Resolution Strategy",
+            "purpose": "Document the TopicResolver interface for dynamic topic name generation based on roomId and message channel",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "The 'TopicResolver' interface allows customizing how room IDs map to Kafka topics. Default behavior might map room 'A' to 'yjs-doc-A'. Custom strategies can implement hashing, sharding, or multi-tenant naming conventions (e.g., 'tenant-1-room-A')."
+                }
+            ]
+        },
+        {
+            "title": "Persistence Package",
+            "purpose": "Document the persistence layer that stores Kafka events to MySQL, including snapshot and update history management",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Located in 'packages/persistence', this package manages saving Yjs state to a database (defaulting to MySQL via TypeORM). It ensures that the ephemeral stream of Kafka updates is durably stored as snapshots and history logs for recovery."
+                }
+            ]
+        },
+        {
+            "title": "PersistenceCoordinator",
+            "purpose": "Explain the PersistenceCoordinator interface for persistUpdate, persistSnapshot, recoverSnapshot, and exportHistory operations",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "The main facade for persistence operations. 'persistUpdate' saves incremental changes. 'persistSnapshot' saves the full Y.Doc state. 'recoverSnapshot' retrieves the latest snapshot. 'exportHistory' retrieves all updates after a specific version. It coordinates the use of adapters."
+                }
+            ]
+        },
+        {
+            "title": "Database Schema",
+            "purpose": "Document the document_snapshots and update_history tables with their TypeORM entity definitions",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Uses two main tables: 'document_snapshots' stores the binary Y.Doc blob and its version; 'update_history' stores individual update blobs, associated metadata, and version. This schema supports both fast initial loads and precise history replay."
+                }
+            ]
+        },
+        {
+            "title": "State Recovery Flow",
+            "purpose": "Explain how new nodes recover state by loading snapshots, fetching incremental history, and applying updates in order",
+            "parent": "Core Packages",
+            "page_notes": [
+                {
+                    "content": "Recovery is a two-step process: 1. Fetch the latest 'DocumentSnapshot' from the DB and apply it to a new Y.Doc. 2. Fetch all records from 'update_history' where version > snapshot.version and apply them in order. This reconstructs the document state to the latest point in time."
+                }
+            ]
+        },
+        {
+            "title": "Applications",
+            "purpose": "Overview of the two applications: the NestJS server backend and the React demo frontend",
+            "page_notes": [
+                {
+                    "content": "The repository includes two example applications: 'apps/server', a NestJS backend that implements the transport and persistence layers, and 'apps/demo', a React frontend that demonstrates how to use the provider with an editor."
+                }
+            ]
+        },
+        {
+            "title": "Server Application",
+            "purpose": "Document the NestJS server application that implements the transport and persistence layers",
+            "parent": "Applications",
+            "page_notes": [
+                {
+                    "content": "A NestJS application located in 'apps/server'. It integrates the 'transport' and 'persistence' packages to provide a functioning collaboration server. It exposes WebSocket endpoints for clients and REST endpoints for administration/debugging."
+                }
+            ]
+        },
+        {
+            "title": "ServerCollabService",
+            "purpose": "Detail the core service managing Kafka producer, in-memory message cache, and MySQL persistence",
+            "parent": "Applications",
+            "page_notes": [
+                {
+                    "content": "The core logic unit in the server app. It initializes the Kafka producer and consumer, sets up the PersistenceCoordinator with the database connection, and bridges the data flow between the WebSocket gateway and the persistence layer."
+                }
+            ]
+        },
+        {
+            "title": "ServerCollabGateway",
+            "purpose": "Explain the WebSocket gateway that handles Socket.IO connections and room management",
+            "parent": "Applications",
+            "page_notes": [
+                {
+                    "content": "The NestJS Gateway that handles incoming Socket.IO connections. It uses 'createBusSocketHandlers' to delegate connection and message handling to the Transport package logic, effectively plugging the NestJS WebSocket server into the Kafka bus."
+                }
+            ]
+        },
+        {
+            "title": "REST API Endpoints",
+            "purpose": "Document the HTTP endpoints for publishing updates, persisting snapshots, and querying status",
+            "parent": "Applications",
+            "page_notes": [
+                {
+                    "content": "Exposes endpoints like 'GET /collab/status' (check document state), 'POST /collab/publish' (push updates via HTTP), and 'POST /collab/persist' (trigger snapshot). These are useful for testing, debugging, or supporting non-WebSocket clients."
+                }
+            ]
+        },
+        {
+            "title": "Demo Application",
+            "purpose": "Document the React demo application showcasing ProseMirror integration with ProtocolProvider",
+            "parent": "Applications",
+            "page_notes": [
+                {
+                    "content": "A React application in 'apps/demo' showcasing the client integration. It uses 'ProtocolProvider' to connect to the server and bind a Y.Doc to an editor (e.g., BlockSuite or ProseMirror). It serves as a reference implementation for frontend developers."
+                }
+            ]
+        }
+    ]
+}
