@@ -134,8 +134,8 @@ const App = () => {
     const state = EditorState.create({
       schema: basicSchema,
       plugins: [
-        ySyncPlugin(yXmlFragment),
-        yCursorPlugin(awareness),
+        ySyncPlugin(yXmlFragment as any),
+        yCursorPlugin(awareness as any),
         yUndoPlugin(),
         history(),
         keymap(baseKeymap),
@@ -160,7 +160,6 @@ const App = () => {
     const providerUrl = `${VITE_COLLAB_SERVER_URL}/socket.io/?room=${DEMO_DOC_ID}`;
     const provider = new ProtocolProvider(ydoc, {
       url: providerUrl,
-      roomId: DEMO_DOC_ID,
       docId: DEMO_DOC_ID,
       WebSocketImpl: SocketIoWebSocket,
       metadataCustomizer: (metadata) => ({

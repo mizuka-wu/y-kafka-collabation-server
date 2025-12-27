@@ -184,11 +184,12 @@ export const decodeKafkaEnvelope = (
  */
 export const createMetadata = (
   doc: Y.Doc,
-  roomId?: string,
+  roomId: string,
+  docId: string,
   subdocId?: string,
 ): ProtocolMessageMetadata => ({
-  roomId: roomId ?? doc.guid,
-  docId: doc.guid,
+  roomId,
+  docId,
   subdocId,
   senderId: String(doc.clientID),
   timestamp: Date.now(),

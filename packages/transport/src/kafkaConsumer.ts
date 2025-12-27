@@ -44,14 +44,16 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
         return;
       }
 
-      const roomId = metadata.roomId ?? metadata.docId;
-      if (!roomId) {
+      const roomId = metadata.roomId;
+      const docId = metadata.docId;
+
+      if (!roomId || !docId) {
         return;
       }
 
       const sockets = metadata.subdocId
-        ? roomRegistry.getSockets(roomId, metadata.subdocId)
-        : roomRegistry.getSockets(roomId);
+        ? roomRegistry.getSockets(docId, metadata.subdocId)
+        : roomRegistry.getSockets(docId);
       if (sockets.length === 0) {
         return;
       }

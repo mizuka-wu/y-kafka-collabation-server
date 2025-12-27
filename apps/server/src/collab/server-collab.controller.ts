@@ -11,8 +11,14 @@ export class ServerCollabController {
   }
 
   @Post('publish')
-  async publish(@Body() payload: { docId: string; content: string }) {
-    return this.collab.publishUpdate(payload.docId, payload.content);
+  async publish(
+    @Body() payload: { roomId?: string; docId: string; content: string },
+  ) {
+    return this.collab.publishUpdate(
+      payload.roomId ?? 'default',
+      payload.docId,
+      payload.content,
+    );
   }
 
   @Post('persist')

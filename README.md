@@ -151,7 +151,7 @@ flowchart TD
 
 | 字段 | 含义 | 用法 |
 | --- | --- | --- |
-| `roomId` | 聚合粒度 | 用于 Kafka topic（`yjs-doc-roomId`），缺失 fallback docId |
+| `roomId` | 文档类型/聚合粒度 | 用于 Kafka topic（`docs-{roomId}`），默认为 `default` |
 | `docId` | 具体 Y.Doc | 一 room 可多 doc；consumer 以上数据构建 local state |
 | `subdocId` | 子文档分片 | RoomRegistry routing + persistence query |
 | `version` | 当前版本 | persistence ordering + history sinceVersion |

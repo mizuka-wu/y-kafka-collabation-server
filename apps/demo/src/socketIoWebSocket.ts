@@ -47,6 +47,11 @@ export class SocketIoWebSocket implements WebSocket {
   static readonly CLOSING = 2;
   static readonly CLOSED = 3;
 
+  public readonly CONNECTING = 0;
+  public readonly OPEN = 1;
+  public readonly CLOSING = 2;
+  public readonly CLOSED = 3;
+
   public readyState = SocketIoWebSocket.CONNECTING;
   public bufferedAmount = 0;
   public readonly url: string;
@@ -58,12 +63,15 @@ export class SocketIoWebSocket implements WebSocket {
 
   private socket: Socket;
 
-  constructor(url: string) {
-    this.socket = io(url, {
+  constructor(url: string | URL, protocols?: string | string[]) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _p = protocols;
+    const urlStr = url.toString();
+    this.socket = io(urlStr, {
       transports: ['websocket'],
       autoConnect: true,
     });
-    this.url = url;
+    this.url = urlStr;
 
     this.socket.on('connect', () => {
       this.readyState = SocketIoWebSocket.OPEN;
@@ -94,14 +102,16 @@ export class SocketIoWebSocket implements WebSocket {
     }
     const buffer = toUint8Array(data);
     let docId: string | undefined;
+    let roomId: string | undefined;
     try {
       const { metadata } = decodeKafkaEnvelope(buffer);
-      docId = metadata.docId ?? metadata.roomId;
+      docId = metadata.docId;
+      roomId = metadata.roomId;
     } catch (error) {
       console.error('无法解析 Kafka envelope metadata', error);
     }
     const payload = toBase64(buffer);
-    this.socket.emit('protocol-message', { docId, payload });
+    this.socket.emit('protocol-message', { docId, roomId, payload });
   }
 
   close(code?: number, reason?: string): void {
@@ -123,14 +133,20 @@ export class SocketIoWebSocket implements WebSocket {
     );
   }
 
-  addEventListener(): void {
-    throw new Error('not implemented');
-  }
-  removeEventListener(): void {
-    throw new Error('not implemented');
-  }
-  dispatchEvent(): boolean {
-    throw new Error('not implemented');
+  addEventListener(
+    _type: string,
+    _listener: EventListenerOrEventListenerObject,
+    _options?: boolean | AddEventListenerOptions,
+  ): void {}
+
+  removeEventListener(
+    _type: string,
+    _listener: EventListenerOrEventListenerObject,
+    _options?: boolean | EventListenerOptions,
+  ): void {}
+
+  dispatchEvent(_event: Event): boolean {
+    return true;
   }
 
   get extensions(): string {

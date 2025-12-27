@@ -43,10 +43,6 @@ export const createBusSocketHandlers = (
 } => {
   const { kafkaProducer, protocolCodec, roomRegistry, topicResolver } = deps;
 
-  const emitMetadataError = (socket: Socket, reason: string) => {
-    socket.emit('protocol:error', { reason });
-  };
-
   return {
     handleConnection(socket, assignment) {
       roomRegistry.add(socket, assignment);
@@ -54,17 +50,11 @@ export const createBusSocketHandlers = (
     },
 
     async handleClientMessage(socket, message) {
-      const metadata = {
-        ...message.metadata,
-        roomId: message.metadata.roomId ?? message.metadata.docId,
-      };
-      if (!metadata.roomId) {
-        emitMetadataError(socket, 'roomId required');
-        return;
-      }
+      const metadata = message.metadata;
+
       const topic = resolveTopic(
         message.channel,
-        metadata.roomId,
+        metadata.roomId as string,
         topicResolver,
       );
       const payload = toUint8Array(message.payload);

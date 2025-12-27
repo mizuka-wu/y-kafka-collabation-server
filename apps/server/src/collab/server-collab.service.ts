@@ -78,20 +78,23 @@ export class ServerCollabService implements OnModuleDestroy {
     }));
   }
 
-  async publishUpdate(docId: string, content: string) {
+  async publishUpdate(roomId: string, docId: string, content: string) {
     await this.kafkaReady;
-    const topic = this.topicFor(docId);
+    const topic = this.topicFor(roomId);
     await this.producer.send({
       topic,
       messages: [{ value: content }],
     });
     this.enqueueMessage(docId, content);
-    this.logger.log(`Published update for ${docId} to topic ${topic}`);
+    this.logger.log(
+      `Published update for ${docId} (room ${roomId}) to topic ${topic}`,
+    );
     for (const listener of this.updateListeners) {
       listener(docId, content);
     }
     return {
       docId,
+      roomId,
       topic,
       content,
     };
@@ -146,8 +149,8 @@ export class ServerCollabService implements OnModuleDestroy {
     }
   }
 
-  private topicFor(docId: string) {
-    return `docs-${docId}`;
+  private topicFor(roomId: string) {
+    return `docs-${roomId}`;
   }
 
   private async connectKafka() {

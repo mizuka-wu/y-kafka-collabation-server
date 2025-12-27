@@ -17,8 +17,8 @@ export enum ProtocolMessageType {
  * 上层协议需要的元信息，可以顺序发送到 WebSocket/Kafka。
  */
 export interface ProtocolMessageMetadata {
-  roomId?: string;
-  docId?: string;
+  roomId: string;
+  docId: string;
   subdocId?: string;
   senderId?: string;
   version?: number;

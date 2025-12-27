@@ -5,7 +5,7 @@ export type BusClientChannel = 'doc' | 'awareness' | 'control';
 
 export interface BusClientMessage {
   payload: Uint8Array | Buffer | string;
-  metadata: ProtocolMessageMetadata & { roomId?: string };
+  metadata: ProtocolMessageMetadata;
   channel?: BusClientChannel;
 }
 
@@ -56,13 +56,14 @@ export interface ProtocolCodecAdapter {
 
 export interface RoomAssignment {
   roomId: string;
+  docId: string;
   subdocId?: string;
 }
 
 export interface RoomRegistry {
   add(socket: Socket, assignment: RoomAssignment): void;
   remove(socket: Socket): void;
-  getSockets(roomId: string, subdocId?: string): Socket[];
+  getSockets(docId: string, subdocId?: string): Socket[];
 }
 
 export interface TransportSocketHandlers {

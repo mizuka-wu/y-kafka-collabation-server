@@ -46,7 +46,7 @@ export interface ProtocolProviderOptions {
    */
   url: string;
   /**
-   * 连接所在 roomId（优先）或 docId（回退）。
+   * 连接所在 roomId（作为文档类型，默认为 'default'）。
    */
   roomId?: string;
   /**
@@ -291,7 +291,7 @@ export class ProtocolProvider implements ProtocolCodecContext {
           const reply = decodeMessage(this, remotePayload, true);
           if (reply) {
             this.queueMessage(reply, {
-              roomId: metadata.roomId ?? metadata.docId,
+              roomId: metadata.roomId,
               docId: metadata.docId,
               subdocId: metadata.subdocId,
               version: metadata.version,
@@ -403,11 +403,9 @@ export class ProtocolProvider implements ProtocolCodecContext {
     overrides?: Partial<ProtocolMessageMetadata>,
     payload?: Uint8Array,
   ): ProtocolMessageMetadata {
-    const roomId = this.options.roomId ?? this.options.docId ?? this.doc.guid;
-    const base = createMetadata(this.doc, roomId, this.options.subdocId);
-    if (typeof this.options.docId === 'string') {
-      base.docId = this.options.docId;
-    }
+    const roomId = this.options.roomId ?? 'default';
+    const docId = this.options.docId ?? this.doc.guid;
+    const base = createMetadata(this.doc, roomId, docId, this.options.subdocId);
     const merged = {
       ...base,
       ...overrides,

@@ -73,8 +73,16 @@ export class ServerCollabGateway
   }
 
   @SubscribeMessage('protocol-message')
-  async handleProtocolMessage(message: { docId: string; payload: string }) {
-    return this.collabService.publishUpdate(message.docId, message.payload);
+  async handleProtocolMessage(message: {
+    roomId: string;
+    docId: string;
+    payload: string;
+  }) {
+    return this.collabService.publishUpdate(
+      message.roomId ?? 'default', // Fallback for backward compatibility if needed, though client sends it now
+      message.docId,
+      message.payload,
+    );
   }
 
   private addSocketToRoom(docId: string, socket: Socket) {
@@ -83,7 +91,7 @@ export class ServerCollabGateway
     this.rooms.set(docId, set);
   }
 
-  private extractRoomFromQuery(client: Socket) {
+  private extractRoomFromQuery(client: Socket): string | undefined {
     const roomParam = client.handshake.query.room;
     if (!roomParam) {
       return undefined;
@@ -91,9 +99,6 @@ export class ServerCollabGateway
     if (Array.isArray(roomParam)) {
       return roomParam[0];
     }
-    if (typeof roomParam === 'string') {
-      return roomParam;
-    }
-    return undefined;
+    return roomParam as string;
   }
 }
