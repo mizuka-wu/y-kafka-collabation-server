@@ -14,8 +14,8 @@ export class DocumentSnapshot {
   @Column({ type: 'varchar', length: 128, nullable: true })
   subdocId?: string;
 
-  @Column({ type: 'bigint' })
-  version!: number;
+  @Column({ type: 'varchar', length: 64 })
+  version!: string;
 
   @Column({ type: 'bigint' })
   timestamp!: number;
@@ -49,8 +49,8 @@ export class UpdateHistory {
   @Column({ type: 'varchar', length: 128, nullable: true })
   subdocId?: string;
 
-  @Column({ type: 'bigint' })
-  version!: number;
+  @Column({ type: 'varchar', length: 64 })
+  version!: string;
 
   @Column({ type: 'bigint' })
   timestamp!: number;
@@ -74,7 +74,7 @@ export class UpdateHistory {
 
 export interface PersistenceMetadata {
   docId: string;
-  version: number;
+  version: string;
   roomId?: string;
   subdocId?: string;
   timestamp?: number;
@@ -95,6 +95,6 @@ export interface PersistenceAdapter {
   exportHistory(
     docId: string,
     subdocId?: string,
-    sinceVersion?: number,
+    sinceVersion?: string,
   ): Promise<UpdateHistory[]>;
 }

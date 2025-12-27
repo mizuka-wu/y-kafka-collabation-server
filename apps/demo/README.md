@@ -15,18 +15,24 @@ You can start editing the demo **APIs** by modifying [linksService](./src/links/
 
 ## 与 apps/server 协同
 
-本 demo 主要展示 `ProtocolProvider` + editor 客户端如何驱动服务端的 Kafka/MySQL pipeline。因为服务端暴露的是标准 REST 接口（`POST /collab/publish`、`POST /collab/persist`、`GET /collab/status`），你可以在任何 controller/service 中通过 `fetch` 或 `axios` 调用，而不需要直接嵌入 Kafka 客户端。
+本 demo 主要展示 `ProtocolProvider` + editor 客户端如何驱动服务端的 Kafka/MySQL pipeline。因为服务端暴露的是标准 REST 接口（`POST /collab/publish`、`POST /collab/persist`、`GET /collab/status`、`GET /collab/doc/:docId`），你可以在任何 controller/service 中通过 `fetch` 或 `axios` 调用，而不需要直接嵌入 Kafka 客户端。
 
 建议在 `apps/demo` 根目录（或项目根）建立 `.env` 文件，指定 `COLLAB_SERVER_URL`（如 `http://localhost:3000`），然后在业务代码里使用：
 
 ```ts
 const baseUrl = process.env.COLLAB_SERVER_URL ?? 'http://localhost:3000';
 
-async function publishUpdate(docId: string, content: string) {
+async function fetchDocumentState(docId: string) {
+  // 获取文档最新快照 + 近期增量更新（纯阅读态/初始化）
+  const response = await fetch(`${baseUrl}/collab/doc/${docId}`);
+  return response.json();
+}
+
+async function publishUpdate(roomId: string, docId: string, content: string) {
   await fetch(`${baseUrl}/collab/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ docId, content }),
+    body: JSON.stringify({ roomId, docId, content }),
   });
 }
 

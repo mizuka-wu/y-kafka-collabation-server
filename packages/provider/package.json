@@ -24,8 +24,8 @@
   "devDependencies": {
     "@types/node": "^22.15.3",
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
-    "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "@y-kafka-collabation-server/rollup-config": "workspace:*",
+    "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
     "vitest": "^1.2.1"
@@ -33,6 +33,8 @@
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y/protocols": "^1.0.6-3",
-    "@y/y": "^14.0.0-16"
+    "@y/y": "^14.0.0-16",
+    "buffer": "^6.0.3",
+    "socket.io-client": "^4.8.3"
   }
 }

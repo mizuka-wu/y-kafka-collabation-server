@@ -5,6 +5,7 @@ import {
   PersistenceMetadata,
   UpdateHistory,
 } from './types';
+import { SnowflakeIdGenerator } from './utils/snowflake';
 
 const toBase64 = (buffer: Buffer | Uint8Array): string =>
   Buffer.from(buffer).toString('base64');
@@ -12,10 +13,16 @@ const toBase64 = (buffer: Buffer | Uint8Array): string =>
 export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
   private snapshotRepo;
   private historyRepo;
+  private snowflake: SnowflakeIdGenerator;
 
   constructor(private dataSource: DataSource) {
     this.snapshotRepo = this.dataSource.getRepository(DocumentSnapshot);
     this.historyRepo = this.dataSource.getRepository(UpdateHistory);
+    this.snowflake = new SnowflakeIdGenerator(1, 1);
+  }
+
+  private generateVersion(): string {
+    return this.snowflake.nextId();
   }
 
   async loadLatestSnapshot(docId: string, subdocId?: string) {
@@ -25,7 +32,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
         subdocId,
       },
       order: {
-        version: 'DESC',
+        createdAt: 'DESC',
       },
     });
   }
@@ -73,7 +80,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
     });
   }
 
-  async exportHistory(docId: string, subdocId?: string, sinceVersion?: number) {
+  async exportHistory(docId: string, subdocId?: string, sinceVersion?: string) {
     const where: FindOptionsWhere<UpdateHistory> = {
       docId,
       subdocId,
@@ -82,7 +89,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
     return this.historyRepo.find({
       where,
       order: {
-        version: 'ASC',
+        createdAt: 'ASC',
       },
     });
   }

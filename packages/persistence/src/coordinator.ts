@@ -3,7 +3,7 @@ import { PersistenceAdapter, PersistenceMetadata } from './types';
 export interface SnapshotRecovery {
   docId: string;
   subdocId?: string;
-  version: number;
+  version: string;
   data: Buffer;
   storageLocation?: string;
 }
@@ -40,7 +40,7 @@ export class PersistenceCoordinator {
     await this.adapter.persistSnapshot(metadata, binary);
   }
 
-  async exportHistory(docId: string, subdocId?: string, sinceVersion?: number) {
+  async exportHistory(docId: string, subdocId?: string, sinceVersion?: string) {
     return this.adapter.exportHistory(docId, subdocId, sinceVersion);
   }
 }

@@ -93,6 +93,17 @@ graph TD
 
 聚合阶段通过 `rys` 将多条 awareness/update 合并后再 broadcast，减少重复渲染；在 HTTP 降级或 long poll 场景，客户端主动上传本地最新状态，服务端再从 Kafka offset 里拉取更新、聚合后统一返回，保持一致性。
 
+### HTTP API 支持 (阅读态/降级)
+
+Server 端提供了纯 HTTP 接口，用于不支持 WebSocket 的环境（如纯阅读态、防火墙限制）或作为连接失败的降级方案：
+
+* **获取文档状态 (阅读态)**: `GET /collab/doc/:docId`
+  * 返回 `{ docId, snapshot, updates }`。
+  * 客户端可利用 snapshot (Base64) 初始化 Y.Doc，并应用 updates (Base64 数组) 追平最新状态。
+* **发布更新 (降级写)**: `POST /collab/publish`
+  * 接受 `{ roomId, docId, content }`。
+  * 将 Yjs update 直接推送到 Kafka，后续流程与 WebSocket 一致。
+
 ## 4. 持久化与历史服务（只有 doc update）
 
 ```mermaid
@@ -145,7 +156,8 @@ flowchart TD
 
 1. `pnpm --filter @y-kafka-collabation-server/transport dev`：inject `roomRegistry`、`protocolCodec`、`kafkaProducer/Consumer`，`createBusSocketHandlers` 处理 connection/message/disconnect。
 2. `pnpm --filter @y-kafka-collabation-server/persistence dev`：`PersistenceCoordinator` 写 `document_snapshots.version` 与 Kafka metadata 中 version 保持一致，`historyOnly` 控制 snapshot 频率。
-3. Protocol library 通过 `ProtocolCodecContext`、`decodeMessage`、`encodeSyncStep1` 被 transport/HTTP handler 调用，确保 Y.Doc 与 awareness 更新一致。
+3. `pnpm --filter @y-kafka-collabation-server/server dev`: 启动演示用的 API Server (NestJS)，提供 Kafka/DB 状态查询与 HTTP 降级接口。**启动后访问 <http://localhost:3000/api> 查看 Swagger 文档**。
+4. Protocol library 通过 `ProtocolCodecContext`、`decodeMessage`、`encodeSyncStep1` 被 transport/HTTP handler 调用，确保 Y.Doc 与 awareness 更新一致。
 
 ### Metadata & version 约定
 

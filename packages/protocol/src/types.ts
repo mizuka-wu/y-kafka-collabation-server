@@ -21,7 +21,7 @@ export interface ProtocolMessageMetadata {
   docId: string;
   subdocId?: string;
   senderId?: string;
-  version?: number;
+  version?: string;
   timestamp?: number;
   note?: string;
 }

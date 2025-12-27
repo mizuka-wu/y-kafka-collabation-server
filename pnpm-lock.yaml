@@ -39,14 +39,14 @@ importers:
   apps/demo:
     dependencies:
       '@blocksuite/blocks':
-        specifier: ^0.19.5
-        version: 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+        specifier: 0.0.0-canary-20250316001624
+        version: 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
       '@blocksuite/presets':
-        specifier: ^0.19.5
-        version: 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+        specifier: 0.0.0-canary-20250316001624
+        version: 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
       '@blocksuite/store':
-        specifier: ^0.22.4
-        version: 0.22.4
+        specifier: 0.0.0-canary-20250316001624
+        version: 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@y-kafka-collabation-server/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -147,6 +147,9 @@ importers:
       '@nestjs/platform-socket.io':
         specifier: ^11.1.10
         version: 11.1.10(@nestjs/common@11.1.9)(@nestjs/websockets@11.1.10)(rxjs@7.8.2)
+      '@nestjs/swagger':
+        specifier: ^11.2.3
+        version: 11.2.3(@nestjs/common@11.1.9)(@nestjs/core@11.1.8)(reflect-metadata@0.2.2)
       '@nestjs/websockets':
         specifier: ^11.0.0
         version: 11.1.10(@nestjs/common@11.1.9)(@nestjs/core@11.1.8)(@nestjs/platform-socket.io@11.1.10)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -407,6 +410,12 @@ importers:
       '@y/y':
         specifier: ^14.0.0-16
         version: 14.0.0-16
+      buffer:
+        specifier: ^6.0.3
+        version: 6.0.3
+      socket.io-client:
+        specifier: ^4.8.3
+        version: 4.8.3
     devDependencies:
       '@types/node':
         specifier: ^22.15.3
@@ -879,18 +888,18 @@ packages:
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
     dev: true
 
-  /@blocksuite/affine-block-embed@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-RitpfEkr1ishGU3eNFQVkMdwhMtdmG73a3q4U5oW6+/K+XXpQcOxKBAy+cDHW3IbQrZKW7fM1OQni1c9aV4qIA==}
+  /@blocksuite/affine-block-embed@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-u7IJu/qV3n3WqjbnVkwm/z1Q9NnEBBoSc+9qIe3P9ToEnscrvX9bSuMlCIsODZY4iMbGftYKF47spwzAQXSTxQ==}
     dependencies:
-      '@blocksuite/affine-block-surface': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-block-surface': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@blocksuite/icons': 2.2.17(@types/react@18.3.27)(change-case@4.1.2)(lit@3.3.2)(react@18.3.1)
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
@@ -905,41 +914,16 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-block-list@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-VQai6PpB5hWS7e/CPmQkgAIoUEGog1qAb74Zlo//VMsbMvei59Rl7MVkuVJFqIHJjIKVfY92vTnWIhkPyXDTRg==}
+  /@blocksuite/affine-block-list@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-cvHeS9WehkWOyi5eC3v+z3fqqHguaoHqM403P5e4qanXk7a3jhIREbLFqvlC7KCqe1dy06rP8eS6CpTHMDGHJg==}
     dependencies:
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@floating-ui/dom': 1.7.4
-      '@lit/context': 1.1.6
-      '@preact/signals-core': 1.12.1
-      '@toeverything/theme': 1.1.16
-      '@types/mdast': 4.0.4
-      lit: 3.3.2
-      minimatch: 10.1.1
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - '@types/react'
-      - change-case
-      - react
-      - yjs
-    dev: false
-
-  /@blocksuite/affine-block-paragraph@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-3KNwB2Sh1wJ4Czgwp7W0PFMQXgPybleHnemqumQul6kqa+QKRb7Mf85IiibdYla4jZVRoYDMSELp2zVXkvZegA==}
-    dependencies:
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
@@ -955,16 +939,41 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-block-surface@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-J4x7eokB4vJSdBBpo4ZHqD1HPjfaY0F7ymHQjo4e9TNqYaBGGdWVJi7UsdXyKIvTxFg5GCX3GbgZ9wMm2Moj2Q==}
+  /@blocksuite/affine-block-paragraph@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-9dLiFcNi5NXTpCXzfE7gv7XMKDhu/vrxYah/Csb8VY3XtMA2hAhQ4R57+qwUNVPkz9D6iKyBky+zSSPOPkJzRA==}
     dependencies:
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@floating-ui/dom': 1.7.4
+      '@lit/context': 1.1.6
+      '@preact/signals-core': 1.12.1
+      '@toeverything/theme': 1.1.16
+      '@types/mdast': 4.0.4
+      lit: 3.3.2
+      minimatch: 10.1.1
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@types/react'
+      - change-case
+      - react
+      - yjs
+    dev: false
+
+  /@blocksuite/affine-block-surface@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-Aqd8TgIIifeU+U13z6DNiTL+etSDfDw/2sgmLCiJ8JfG3y2rwEmd2IHYGgy6gkcvgHqggCgc9qHAXcaR2bFLPA==}
+    dependencies:
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
       '@toeverything/theme': 1.1.16
@@ -980,16 +989,16 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-components@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-TM5xWqDBiFuXyj9DKBvmvFdWOfKPfTVTIlv8RnwK6z8x7wOeWIyoMFOku5kTKJl301mc3FPH/eQS1mkckzm6rQ==}
+  /@blocksuite/affine-components@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-XJv6Tx0V/Nxaf1EFxwkviwLQvhLzSTeFRRbcpFDAN+seqlTpTkli+Efyan4RU5zbvVZapJsnNntQqvTfC7TWMg==}
     dependencies:
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@blocksuite/icons': 2.2.17(@types/react@18.3.27)(change-case@4.1.2)(lit@3.3.2)(react@18.3.1)
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
       '@lottiefiles/dotlottie-wc': 0.4.6
@@ -1009,13 +1018,13 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-model@0.19.5(lit@3.3.2)(yjs@13.6.28):
-    resolution: {integrity: sha512-OqlUg5GbctRYTd+6txKZKAfiOIMJAq+6CT9RXqoSU41LdmsDGbuMMRrY4qpyg1qk/HbOB0JYjc+PIYmKiCy16w==}
+  /@blocksuite/affine-model@0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28):
+    resolution: {integrity: sha512-pt9tKrr+v4bpGZueLfPuKcmAn3rvx4tX4tZQ6cjhCnTjrNyfIrL+LJxRdvYeBfO8px73KLzZ3eIgbzYmZ466rA==}
     dependencies:
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       fractional-indexing: 3.2.0
       zod: 3.25.76
     transitivePeerDependencies:
@@ -1023,15 +1032,15 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-shared@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-95yAjuSR178nL6/LGqUfmBaaWZO9OEYd+9EGmJ915HyxiYgsgyAxThiGYHIB/hYC6pOF7a9owYdthB71fwb5Bg==}
+  /@blocksuite/affine-shared@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-u9FIzrHdqIORApSs5G9t/5gXvaDIbO7H62fzPebJyHioIPKbahAZusgBqubesMAcskkckXZSQXhRj1xE6MYU8A==}
     dependencies:
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@blocksuite/icons': 2.2.17(@types/react@18.3.27)(change-case@4.1.2)(lit@3.3.2)(react@18.3.1)
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
@@ -1050,13 +1059,13 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/affine-widget-scroll-anchoring@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-gqKJh+gnmSWeHn17VLTMn05jouHTvDVtxRMtPRX85sjwxXkiyBqaYaaXNNqeEpCS/3sA3+3vqPxAHVvLer/VxQ==}
+  /@blocksuite/affine-widget-scroll-anchoring@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-8zQa3UQP8CFiLZQuTsG1v9vb8jFQGgIK7LxzBew4uSvOQJfEm2ppRJbB7iqfv6AXt2kvnwW0dKPbYXEBTypXCA==}
     dependencies:
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@preact/signals-core': 1.12.1
       '@toeverything/theme': 1.1.16
       lit: 3.3.2
@@ -1067,12 +1076,12 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/block-std@0.19.5(yjs@13.6.28):
-    resolution: {integrity: sha512-MhUmdp+EBqHqlhXE+cYvlqq9+HFFdMivWss4t/GqUEwbD45SEEDLm1U2BQmEDVvDPE84bDb5yYfFYM2mgr2n6w==}
+  /@blocksuite/block-std@0.0.0-canary-20250316001624(yjs@13.6.28):
+    resolution: {integrity: sha512-A5vSerrTDunFWoegJBONrhgQN8B6RoigAGkXgXdd3hp6PlpndCLJRQPhfG+gHQZrSDI3h74/yocxvVF7/wQhiw==}
     dependencies:
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
       '@types/hast': 3.0.4
@@ -1088,23 +1097,23 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/blocks@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-C3Uuhnun3I++wfWeNBdXu2H8aJc0SQJZQRBzs+A/n+C+SmkLutam0WXvBZMeLjvIh4h+q0L1GySfemU1Q1tFBg==}
+  /@blocksuite/blocks@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-5c2kd9XYMNT6Z5zAf1kcsGoRsorNS+JT8ru7ITXjwHqHAATQfSKovve2Yt95oG7G7bRjcFNOaCTyT25E8CZseA==}
     dependencies:
-      '@blocksuite/affine-block-embed': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-block-list': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-block-paragraph': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-block-surface': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-widget-scroll-anchoring': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/data-view': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-block-embed': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-block-list': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-block-paragraph': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-block-surface': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-widget-scroll-anchoring': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/data-view': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@blocksuite/icons': 2.2.17(@types/react@18.3.27)(change-case@4.1.2)(lit@3.3.2)(react@18.3.1)
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
       '@preact/signals-core': 1.12.1
@@ -1150,15 +1159,15 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/data-view@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-RD9Fru6gP6cTvUXxr73f4uPYqK+O4WtCzYCehsInvaZvA/8QxM3YKGvZl1Kv3xfclVqAkYeSsSx/tV9TWHKCMw==}
+  /@blocksuite/data-view@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-Z1de4ADF4QFDdioZxbYKO480lwJGx4+UBzNGiZTzyZR3g3EuGd2cWL3YF+vMMSqxqA6UEfcwo4YtDtKGjq56sw==}
     dependencies:
-      '@blocksuite/affine-components': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/affine-components': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@blocksuite/icons': 2.2.17(@types/react@18.3.27)(change-case@4.1.2)(lit@3.3.2)(react@18.3.1)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@emotion/hash': 0.9.2
       '@floating-ui/dom': 1.7.4
       '@lit/context': 1.1.6
@@ -1174,22 +1183,12 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/global@0.19.5:
-    resolution: {integrity: sha512-IlYFNwb2NVZG8BMnf5OQ68brE7qlgQfsluFbqKUbe6xUHDUzjA97vQ0+uL05ct+tf8RDeXgFBOllasEeWqy8Og==}
+  /@blocksuite/global@0.0.0-canary-20250316001624:
+    resolution: {integrity: sha512-D8QPq9UWUaJBoq3iPhClPEVDbrUfddiP1PM3S7+TaJqetAkxTQIDCxd1ckTVhLLbpxX5TOHReng8nUOZPtjK1Q==}
     dependencies:
       '@preact/signals-core': 1.12.1
       lib0: 0.2.115
       lit: 3.3.2
-      zod: 3.25.76
-    dev: false
-
-  /@blocksuite/global@0.22.4:
-    resolution: {integrity: sha512-XHPSWK9lzEoCbEGBUnZLCylAhcuj/wdlbfo41ZWXmq6OO4rsj8AkCNzoqR58VkwzmjmKj2WID1DTWbGmeE7Ujw==}
-    dependencies:
-      '@preact/signals-core': 1.12.1
-      lib0: 0.2.115
-      lit: 3.3.2
-      rxjs: 7.8.2
       zod: 3.25.76
     dev: false
 
@@ -1213,30 +1212,30 @@ packages:
       react: 18.3.1
     dev: false
 
-  /@blocksuite/inline@0.19.5(lit@3.3.2)(yjs@13.6.28):
-    resolution: {integrity: sha512-IaLnhM7miagKHZL/b2KbkYjglEYZoTOwUHl70DAAQsWg/Na5aZX5y5DHBwkVu4942yRos1Mw+OJ6QGomd/m/aQ==}
+  /@blocksuite/inline@0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28):
+    resolution: {integrity: sha512-SOg6o+jotlERc9w4FK0fZ0z8Bx924BReYP6xftduh38Atp5Te5GtonaxNg8fyYsyIpnWoQtu7Irkp7SUkA/4Lw==}
     peerDependencies:
       lit: ^3.2.0
       yjs: ^13.6.18
     dependencies:
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       '@preact/signals-core': 1.12.1
       lit: 3.3.2
       yjs: 13.6.28
       zod: 3.25.76
     dev: false
 
-  /@blocksuite/presets@0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
-    resolution: {integrity: sha512-FRNX8U9zUPfFO0Fy8Lo8BazVDYxyqlCNVGDyP+G54LA92yBIuBgFRJTAAyL9Rpga0v1RYjKaS11jiAZane69WA==}
+  /@blocksuite/presets@0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28):
+    resolution: {integrity: sha512-GiMupZMQtrobsZE7kPxTDKtlkUql4ausjY58J2UzRBTo5R+EEN7B1biji7tKWThSIHAuWPkG1r718cDyJRZhXQ==}
     dependencies:
-      '@blocksuite/affine-block-surface': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/affine-model': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/affine-shared': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/block-std': 0.19.5(yjs@13.6.28)
-      '@blocksuite/blocks': 0.19.5(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/store': 0.19.5(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-block-surface': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/affine-model': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/affine-shared': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/block-std': 0.0.0-canary-20250316001624(yjs@13.6.28)
+      '@blocksuite/blocks': 0.0.0-canary-20250316001624(@types/react@18.3.27)(change-case@4.1.2)(react@18.3.1)(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/store': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
       '@floating-ui/dom': 1.7.4
       '@lottiefiles/dotlottie-wc': 0.4.6
       '@preact/signals-core': 1.12.1
@@ -1251,14 +1250,14 @@ packages:
       - yjs
     dev: false
 
-  /@blocksuite/store@0.19.5(lit@3.3.2)(yjs@13.6.28):
-    resolution: {integrity: sha512-PK+4wQtwk0U4Y6YCj/EgWlPYx8GYYn4o2CCTqVgXnN5hcmSb7O4QM5+atBE72nrPt1u88fAAsY3ZjbPUxo0vLw==}
+  /@blocksuite/store@0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28):
+    resolution: {integrity: sha512-bJn3S9KoYUO7hWU6h0xHXYFKEROVMJZwd7hoU+jWxQ6IgwafLFzEKBcLkOD8FuHVuRlRsI2JFALSQ2QqO+BUmA==}
     peerDependencies:
       yjs: ^13.6.18
     dependencies:
-      '@blocksuite/global': 0.19.5
-      '@blocksuite/inline': 0.19.5(lit@3.3.2)(yjs@13.6.28)
-      '@blocksuite/sync': 0.19.5(yjs@13.6.28)
+      '@blocksuite/global': 0.0.0-canary-20250316001624
+      '@blocksuite/inline': 0.0.0-canary-20250316001624(lit@3.3.2)(yjs@13.6.28)
+      '@blocksuite/sync': 0.0.0-canary-20250316001624(yjs@13.6.28)
       '@preact/signals-core': 1.12.1
       '@types/flexsearch': 0.7.42
       '@types/lodash.ismatch': 4.4.9
@@ -1277,51 +1276,14 @@ packages:
       - lit
     dev: false
 
-  /@blocksuite/store@0.22.4:
-    resolution: {integrity: sha512-yiaweFPe90Gdjd8+NLaBpB5dr0DtK/eegIpBwgtat5nsA6O9LnJGDItbKOgryPStbZDmnQf/dq7q8MVeo49KEA==}
-    dependencies:
-      '@blocksuite/global': 0.22.4
-      '@blocksuite/sync': 0.22.4(yjs@13.6.28)
-      '@preact/signals-core': 1.12.1
-      '@types/lodash.ismatch': 4.4.9
-      file-type: 21.1.0
-      lib0: 0.2.115
-      lodash.clonedeep: 4.5.0
-      lodash.ismatch: 4.4.0
-      lodash.merge: 4.6.2
-      minimatch: 10.1.1
-      nanoid: 5.1.6
-      rxjs: 7.8.2
-      y-protocols: 1.0.7(yjs@13.6.28)
-      yjs: 13.6.28
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - supports-color
-    dev: false
-
-  /@blocksuite/sync@0.19.5(yjs@13.6.28):
-    resolution: {integrity: sha512-A+6Lvn0USsXmDJc3MfCR7wkUH8wAc0pkygqgBXbJBdMBTfL44Xz1F8B5kMvF08D8DR6NVBbFgDTUOV5cipWV0g==}
+  /@blocksuite/sync@0.0.0-canary-20250316001624(yjs@13.6.28):
+    resolution: {integrity: sha512-2rWOVWaJhjo07ij6/hnnPP8zksfwVLyLXgzGZQgvGZq8AbAQvG9SzEEqLd7UcU+l/3QxcSqteZq/v5QjHg203A==}
     peerDependencies:
       yjs: ^13.6.15
     dependencies:
-      '@blocksuite/global': 0.19.5
+      '@blocksuite/global': 0.0.0-canary-20250316001624
       idb: 8.0.3
       idb-keyval: 6.2.2
-      y-protocols: 1.0.7(yjs@13.6.28)
-      yjs: 13.6.28
-    dev: false
-
-  /@blocksuite/sync@0.22.4(yjs@13.6.28):
-    resolution: {integrity: sha512-Ru/WUy5f14G2BQsb+7oGFEI9kVTrfrma3BRpZsT0Si+nRiRcFgmbi3yBCzbXI4JQQ9CPd6Wyq1eMQ1OFB6GAQg==}
-    peerDependencies:
-      yjs: '*'
-    dependencies:
-      '@blocksuite/global': 0.22.4
-      '@types/lodash-es': 4.17.12
-      idb: 8.0.3
-      idb-keyval: 6.2.2
-      lodash-es: 4.17.22
-      rxjs: 7.8.2
       y-protocols: 1.0.7(yjs@13.6.28)
       yjs: 13.6.28
     dev: false
@@ -2462,6 +2424,10 @@ packages:
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
     engines: {node: '>=8'}
 
+  /@microsoft/tsdoc@0.16.0:
+    resolution: {integrity: sha512-xgAyonlVVS+q7Vc7qLW0UrJU7rSFcETRWsqdXZtjzRU8dF+6CkozTK4V4y1LwOX7j8r/vHphjDeMeGI4tNGeGA==}
+    dev: false
+
   /@nestjs/cli@11.0.10(@types/node@22.19.0):
     resolution: {integrity: sha512-4waDT0yGWANg0pKz4E47+nUrqIJv/UqrZ5wLPkCqc7oMGRMWKAaw1NDZ9rKsaqhqvxb2LfI5+uXOWr4yi94DOQ==}
     engines: {node: '>= 20.11'}
@@ -2555,6 +2521,23 @@ packages:
       tslib: 2.8.1
       uid: 2.0.2
 
+  /@nestjs/mapped-types@2.1.0(@nestjs/common@11.1.9)(reflect-metadata@0.2.2):
+    resolution: {integrity: sha512-W+n+rM69XsFdwORF11UqJahn4J3xi4g/ZEOlJNL6KoW5ygWSmBB2p0S2BZ4FQeS/NDH72e6xIcu35SfJnE8bXw==}
+    peerDependencies:
+      '@nestjs/common': ^10.0.0 || ^11.0.0
+      class-transformer: ^0.4.0 || ^0.5.0
+      class-validator: ^0.13.0 || ^0.14.0
+      reflect-metadata: ^0.1.12 || ^0.2.0
+    peerDependenciesMeta:
+      class-transformer:
+        optional: true
+      class-validator:
+        optional: true
+    dependencies:
+      '@nestjs/common': 11.1.9(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      reflect-metadata: 0.2.2
+    dev: false
+
   /@nestjs/platform-express@11.1.8(@nestjs/common@11.1.9)(@nestjs/core@11.1.8):
     resolution: {integrity: sha512-rL6pZH9BW7BnL5X2eWbJMtt86uloAKjFgyY5+L2UkizgfEp7rgAs0+Z1z0BcW2Pgu5+q8O7RKPNyHJ/9ZNz/ZQ==}
     peerDependencies:
@@ -2617,6 +2600,34 @@ packages:
     transitivePeerDependencies:
       - chokidar
     dev: true
+
+  /@nestjs/swagger@11.2.3(@nestjs/common@11.1.9)(@nestjs/core@11.1.8)(reflect-metadata@0.2.2):
+    resolution: {integrity: sha512-a0xFfjeqk69uHIUpP8u0ryn4cKuHdra2Ug96L858i0N200Hxho+n3j+TlQXyOF4EstLSGjTfxI1Xb2E1lUxeNg==}
+    peerDependencies:
+      '@fastify/static': ^8.0.0
+      '@nestjs/common': ^11.0.1
+      '@nestjs/core': ^11.0.1
+      class-transformer: '*'
+      class-validator: '*'
+      reflect-metadata: ^0.1.12 || ^0.2.0
+    peerDependenciesMeta:
+      '@fastify/static':
+        optional: true
+      class-transformer:
+        optional: true
+      class-validator:
+        optional: true
+    dependencies:
+      '@microsoft/tsdoc': 0.16.0
+      '@nestjs/common': 11.1.9(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core': 11.1.8(@nestjs/common@11.1.9)(@nestjs/platform-express@11.1.8)(@nestjs/websockets@11.1.10)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/mapped-types': 2.1.0(@nestjs/common@11.1.9)(reflect-metadata@0.2.2)
+      js-yaml: 4.1.1
+      lodash: 4.17.21
+      path-to-regexp: 8.3.0
+      reflect-metadata: 0.2.2
+      swagger-ui-dist: 5.30.2
+    dev: false
 
   /@nestjs/testing@11.1.8(@nestjs/common@11.1.9)(@nestjs/core@11.1.8)(@nestjs/platform-express@11.1.8):
     resolution: {integrity: sha512-E6K+0UTKztcPxJzLnQa7S34lFjZbrj3Z1r7c5y5WDrL1m5HD1H4AeyBhicHgdaFmxjLAva2bq0sYKy/S7cdeYA==}
@@ -3035,6 +3046,11 @@ packages:
     requiresBuild: true
     optional: true
 
+  /@scarf/scarf@1.4.0:
+    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
+    requiresBuild: true
+    dev: false
+
   /@sec-ant/readable-stream@0.4.1:
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
     dev: false
@@ -3295,12 +3311,6 @@ packages:
 
   /@types/katex@0.16.7:
     resolution: {integrity: sha512-HMwFiRujE5PjrgwHQ25+bsLJgowjGjm5Z8FVSf0N6PwgJrwxH0QxzHYDcKsTfV3wva0vzrpqMTJS2jXPr5BMEQ==}
-    dev: false
-
-  /@types/lodash-es@4.17.12:
-    resolution: {integrity: sha512-0NgftHUcV4v34VhXm8QBSftKVXtbkBG3ViCjs6+eJ5a6y6Mi/jiFGPc1sC7QK+9BFhWrURE3EOggmWaSxL9OzQ==}
-    dependencies:
-      '@types/lodash': 4.17.21
     dev: false
 
   /@types/lodash.ismatch@4.4.9:
@@ -3975,7 +3985,6 @@ packages:
 
   /argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
-    dev: true
 
   /array-buffer-byte-length@1.0.2:
     resolution: {integrity: sha512-LHE+8BuR7RYGDKvnrmcuSq3tDcKv9OFEXQt/HpbZhY7V6h0zlUXutnAD82GiFx9rdieCMjkvtcsPqBwgUl1Iiw==}
@@ -6865,6 +6874,13 @@ packages:
       argparse: 2.0.1
     dev: true
 
+  /js-yaml@4.1.1:
+    resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
+    hasBin: true
+    dependencies:
+      argparse: 2.0.1
+    dev: false
+
   /jsesc@3.1.0:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
@@ -7024,10 +7040,6 @@ packages:
       p-locate: 5.0.0
     dev: true
 
-  /lodash-es@4.17.22:
-    resolution: {integrity: sha512-XEawp1t0gxSi9x01glktRZ5HDy0HXqrM0x5pXQM98EaI0NxO6jVM7omDOxsuEo5UIASAnm2bRp1Jt/e0a2XU8Q==}
-    dev: false
-
   /lodash.chunk@4.2.0:
     resolution: {integrity: sha512-ZzydJKfUHJwHa+hF5X66zLFCBrWn5GeF28OHEr4WVWtNDXlQ/IjWKPBiikqKo2ne0+v6JgCgJ0GzJp8k8bHC7w==}
     dev: false
@@ -7053,7 +7065,6 @@ packages:
 
   /lodash@4.17.21:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
-    dev: true
 
   /log-symbols@4.1.0:
     resolution: {integrity: sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg==}
@@ -9348,6 +9359,12 @@ packages:
   /supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
+
+  /swagger-ui-dist@5.30.2:
+    resolution: {integrity: sha512-HWCg1DTNE/Nmapt+0m2EPXFwNKNeKK4PwMjkwveN/zn1cV2Kxi9SURd+m0SpdcSgWEK/O64sf8bzXdtUhigtHA==}
+    dependencies:
+      '@scarf/scarf': 1.4.0
+    dev: false
 
   /symbol-observable@4.0.0:
     resolution: {integrity: sha512-b19dMThMV4HVFynSAM1++gBHAbk2Tc/osgLIBZMKsyqh34jb2e8Os7T6ZW/Bt3pJFdBTd2JwAnAAEQV7rSNvcQ==}

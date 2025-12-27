@@ -11,14 +11,55 @@
 
 服务默认监听 [http://localhost:3000](http://localhost:3000)。
 
+## API 文档 (Swagger)
+
+服务集成了 Swagger UI，启动后访问 [http://localhost:3000/api](http://localhost:3000/api) 即可查看完整的 API 文档、Schema 定义并进行在线调试。
+
 ## 提供的 API
 
 | 路径 | 方法 | 描述 |
 | --- | --- | --- |
-| `GET /collab/status` | GET | 返回当前已知文档的 Kafka 消息数和最新 MySQL snapshot。 |
-| `POST /collab/publish` | POST | 接收 `{ docId, content }`，将内容写入模拟 Kafka topic。 |
-| `POST /collab/persist` | POST | 接收 `{ docId, snapshot }`，将快照写入模拟 MySQL。 |
-| `GET /collab/messages?docId=...` | GET | （可选拓展）查看 `docId` 下的 Kafka 消息列表。 |
+| `/collab/status` | GET | 返回当前已知文档的 Kafka 消息数和最新 MySQL snapshot。 |
+| `/collab/doc/:docId` | GET | 获取文档完整状态（最新快照 + 近期更新），用于**纯阅读态**或**降级初始化**。 |
+| `/collab/publish` | POST | 接收 `PublishUpdateDto`，将内容写入 Kafka topic。可用于**降级写**。 |
+| `/collab/persist` | POST | 接收 `PersistSnapshotDto`，将快照写入模拟 MySQL。 |
+| `/collab/messages?docId=...` | GET | （可选拓展）查看 `docId` 下的 Kafka 消息列表。 |
+
+### 请求体示例
+
+#### Get Document State (`/collab/doc/:docId`)
+
+用于不建立 WebSocket 连接的情况下加载文档（如只读模式）。
+
+```json
+{
+  "docId": "my-document-guid",
+  "snapshot": "base64-encoded-snapshot-or-null",
+  "updates": [
+    "base64-encoded-update-1",
+    "base64-encoded-update-2"
+  ]
+}
+```
+
+#### Publish Update (`/collab/publish`)
+
+```json
+{
+  "roomId": "default",
+  "docId": "my-document-guid",
+  "content": "base64-encoded-update-content"
+}
+```
+
+#### Persist Snapshot (`/collab/persist`)
+
+```json
+{
+  "docId": "my-document-guid",
+  "snapshot": "base64-encoded-snapshot-or-json-string"
+}
+```
 
 这些接口可以直接被 `apps/demo` 中的 ProseMirror+Provider 客户端调用，用于同步文档数据到服务端。在 demo 中可以将 Kafka topic 和 MySQL snapshot 当成持久层视角。
 

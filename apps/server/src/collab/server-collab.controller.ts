@@ -1,19 +1,48 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ServerCollabService } from './server-collab.service';
+import { PublishUpdateDto } from './dto/publish-update.dto';
+import { PersistSnapshotDto } from './dto/persist-snapshot.dto';
+import { DocumentStateDto } from './dto/document-state.dto';
 
+@ApiTags('collab')
 @Controller('collab')
 export class ServerCollabController {
   constructor(private readonly collab: ServerCollabService) {}
 
+  @Get('doc/:docId')
+  @ApiOperation({
+    summary: 'Get document state',
+    description:
+      'Returns the latest snapshot and recent updates for a document.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document state retrieved successfully.',
+    type: DocumentStateDto,
+  })
+  async getDocumentState(@Param('docId') docId: string) {
+    return this.collab.getDocumentState(docId);
+  }
+
   @Get('status')
+  @ApiOperation({
+    summary: 'Get current service status',
+    description:
+      'Returns the message count and latest snapshot for known documents.',
+  })
+  @ApiResponse({ status: 200, description: 'Status retrieved successfully.' })
   getStatus() {
     return this.collab.getStatus();
   }
 
   @Post('publish')
-  async publish(
-    @Body() payload: { roomId?: string; docId: string; content: string },
-  ) {
+  @ApiOperation({
+    summary: 'Publish a document update',
+    description: 'Publishes a Yjs update to the Kafka topic.',
+  })
+  @ApiResponse({ status: 201, description: 'Update published successfully.' })
+  async publish(@Body() payload: PublishUpdateDto) {
     return this.collab.publishUpdate(
       payload.roomId ?? 'default',
       payload.docId,
@@ -22,7 +51,12 @@ export class ServerCollabController {
   }
 
   @Post('persist')
-  async persist(@Body() payload: { docId: string; snapshot: string }) {
+  @ApiOperation({
+    summary: 'Persist a document snapshot',
+    description: 'Saves a full document snapshot to the database.',
+  })
+  @ApiResponse({ status: 201, description: 'Snapshot persisted successfully.' })
+  async persist(@Body() payload: PersistSnapshotDto) {
     return this.collab.persistSnapshot(payload.docId, payload.snapshot);
   }
 }

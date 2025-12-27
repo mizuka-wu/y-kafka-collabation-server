@@ -58,6 +58,13 @@ sequenceDiagram
 1. **聚合下发**：由于多个 socket 可能同时接收 Kafka 消息，transport 在向客户端广播前可进行一次基于 `roomId/subdocId` 的聚合合并（使用 rys 提供的批量计算能力），减少高频 awareness/update 的重复渲染。聚合过程中仍保留 metadata，便于客户端区分版本。
 2. **HTTP 降级场景**：当 Socket.IO 降级为 HTTP（Long Poll/SSE）时，客户端切换为将本地最新状态主动发给 transport 服务器，而不是依赖持久的双向连接；服务器在收到请求后从 Kafka topic 的 offset 中拉取当前 room 的所有数据，利用 rys 聚合后再一次性推送给请求方，避免在 HTTP 轮询中频繁重复 fetch。@packages/transport/README.md#76-81
 
+### 3.1 纯 HTTP 模式实现
+
+为支持纯阅读态（Read-only）或 WebSocket 建立失败的场景，系统实现了无状态的 HTTP 接口：
+
+* **状态获取 (`GET /collab/doc/:docId`)**: 混合读取 Persistence 层的最新 `DocumentSnapshot` 和内存中缓存的近期 Kafka `updates`。这允许客户端一次性获得“基线 + 增量”，快速构建最新 Y.Doc 状态，而无需建立长连接。
+* **更新提交 (`POST /collab/publish`)**: 允许通过 HTTP POST 直接将 update binary 发送至 Kafka topic。此路径绕过了 Socket.IO 网关，但后续处理（Consumer 消费、Persistence 落盘）完全复用现有链路，保证了数据一致性。
+
 ## 4. 持续聚合与历史数据服务
 
 1. **定期持久化服务**：Kafka 总线持续输出 doc/awareness payload，定时任务订阅这些 topic，将 `ProtocolMessageMetadata` + update binary 交由 `PersistenceCoordinator` 处理：先写 `document_snapshots`（Y.Doc 快照内含版本号），再附带 `update_history`（日志）。该服务可自定义 `PersistenceAdapter`（SQL/对象存储）确保可重放与审计。@packages/persistence/README.md#3-47

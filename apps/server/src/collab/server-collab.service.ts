@@ -78,6 +78,31 @@ export class ServerCollabService implements OnModuleDestroy {
     }));
   }
 
+  async getDocumentState(docId: string) {
+    await Promise.all([this.kafkaReady, this.persistenceReady]);
+
+    // 1. Get latest snapshot from DB
+    let snapshot: string | null = null;
+    if (this.snapshotRepo) {
+      const record = await this.snapshotRepo.findOne({
+        where: { docId },
+        order: { version: 'DESC' },
+      });
+      if (record) {
+        snapshot = record.data;
+      }
+    }
+
+    // 2. Get recent updates from memory
+    const updates = this.messages.get(docId) ?? [];
+
+    return {
+      docId,
+      snapshot,
+      updates,
+    };
+  }
+
   async publishUpdate(roomId: string, docId: string, content: string) {
     await this.kafkaReady;
     const topic = this.topicFor(roomId);
@@ -105,7 +130,7 @@ export class ServerCollabService implements OnModuleDestroy {
     if (!this.snapshotRepo) {
       throw new Error('Persistence layer not initialized');
     }
-    const version = Number(this.snowflake.nextId());
+    const version = this.snowflake.nextId();
     const record = this.snapshotRepo.create({
       docId,
       version,

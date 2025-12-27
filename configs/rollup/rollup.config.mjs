@@ -22,7 +22,11 @@ export const config = (options) => {
       },
     ],
     plugins: [
-      resolve(),
+      resolve(
+        {
+          preferBuiltins: true
+        }
+      ),
       commonjs(),
       typescript({
         tsconfig: './tsconfig.json',

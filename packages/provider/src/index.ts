@@ -11,6 +11,11 @@ import {
   encodeAwareness,
   decodeMessage,
 } from '@y-kafka-collabation-server/protocol';
+export {
+  MultiplexedSocketManager,
+  createVirtualWebSocketFactory,
+  VirtualWebSocket,
+} from './socket-io-multiplexer';
 
 type AwarenessChangePayload = {
   readonly added: number[];
