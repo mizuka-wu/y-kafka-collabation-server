@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { ProsemirrorDemo } from './pages/ProsemirrorDemo';
-import { BlockSuiteDemo } from './pages/BlockSuiteDemo';
 import { StressTestDemo } from './pages/StressTestDemo';
 import './styles.css';
 
@@ -24,12 +23,6 @@ const App = () => {
             Prosemirror
           </Link>
           <Link
-            to="/blocksuite"
-            className={location.pathname === '/blocksuite' ? 'active' : ''}
-          >
-            BlockSuite
-          </Link>
-          <Link
             to="/stress"
             className={location.pathname === '/stress' ? 'active' : ''}
           >
@@ -42,7 +35,6 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/prosemirror" element={<ProsemirrorDemo />} />
-          <Route path="/blocksuite" element={<BlockSuiteDemo />} />
           <Route path="/stress" element={<StressTestDemo />} />
         </Routes>
       </main>

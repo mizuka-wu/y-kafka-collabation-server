@@ -25,20 +25,6 @@ export const Home = () => {
           </div>
         </Link>
 
-        <Link to="/blocksuite" className="demo-card">
-          <h2>BlockSuite (Subdoc)</h2>
-          <p>
-            基于 BlockSuite 的块级编辑器。
-            <br />
-            演示 Subdoc 加载机制, 大文档拆分协同, 以及高并发下的性能表现。
-          </p>
-          <div className="tags">
-            <span>Subdocs</span>
-            <span>Lazy Loading</span>
-            <span>Performance</span>
-          </div>
-        </Link>
-
         <Link to="/stress" className="demo-card">
           <h2>压力测试</h2>
           <p>

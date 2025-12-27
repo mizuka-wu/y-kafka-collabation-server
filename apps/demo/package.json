@@ -10,9 +10,6 @@
     "lint": "eslint src --ext ts,tsx"
   },
   "dependencies": {
-    "@blocksuite/blocks": "0.0.0-canary-20250316001624",
-    "@blocksuite/presets": "0.0.0-canary-20250316001624",
-    "@blocksuite/store": "0.0.0-canary-20250316001624",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
     "@y/protocols": "^1.0.6-3",
