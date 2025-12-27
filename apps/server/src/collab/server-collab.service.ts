@@ -1,7 +1,10 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Kafka, Producer, Partitioners } from 'kafkajs';
 import { DataSource, Repository } from 'typeorm';
-import { DocumentSnapshot } from '@y-kafka-collabation-server/persistence';
+import {
+  DocumentSnapshot,
+  SnowflakeIdGenerator,
+} from '@y-kafka-collabation-server/persistence';
 
 @Injectable()
 export class ServerCollabService implements OnModuleDestroy {
@@ -16,14 +19,22 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly updateListeners: Array<
     (docId: string, payload: string) => void
   > = [];
+  private readonly snowflake: SnowflakeIdGenerator;
 
   constructor() {
     const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
       .split(',')
       .map((item) => item.trim());
-    this.kafka = new Kafka({ brokers });
+    this.kafka = new Kafka({
+      brokers,
+      retry: {
+        initialRetryTime: 100,
+        retries: 8,
+      },
+    });
     this.producer = this.kafka.producer({
       createPartitioner: Partitioners.LegacyPartitioner,
+      allowAutoTopicCreation: true,
     });
     this.kafkaReady = this.connectKafka();
 
@@ -37,8 +48,16 @@ export class ServerCollabService implements OnModuleDestroy {
       synchronize: true,
       logging: false,
       entities: [DocumentSnapshot],
+      poolSize: 10,
+      extra: {
+        connectionLimit: 10,
+        waitForConnections: true,
+        queueLimit: 0,
+      },
     });
     this.persistenceReady = this.initializePersistence();
+    // Initialize Snowflake with worker 2 (server)
+    this.snowflake = new SnowflakeIdGenerator(2, 1);
   }
 
   async getStatus() {
@@ -83,9 +102,10 @@ export class ServerCollabService implements OnModuleDestroy {
     if (!this.snapshotRepo) {
       throw new Error('Persistence layer not initialized');
     }
+    const version = Number(this.snowflake.nextId());
     const record = this.snapshotRepo.create({
       docId,
-      version: Date.now(),
+      version,
       timestamp: Date.now(),
       data: snapshot,
       storageLocation: 'server',

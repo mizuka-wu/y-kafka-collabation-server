@@ -24,6 +24,11 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
   await kafkaConsumer.subscribe(awarenessTopicPattern);
 
   await kafkaConsumer.run({
+    autoCommit: true,
+    restartOnFailure: async (err) => {
+      console.error('Kafka consumer error, restarting...', err);
+      return true;
+    },
     eachMessage: async (message: KafkaMessage) => {
       if (!message.value) {
         return;

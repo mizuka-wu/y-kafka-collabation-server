@@ -5,6 +5,13 @@ export class DefaultRoomRegistry implements RoomRegistry {
   private socketAssignments = new Map<Socket, RoomAssignment>();
   private roomIndex = new Map<string, Set<Socket>>();
   private subdocIndex = new Map<string, Set<Socket>>();
+  private cleanupInterval: NodeJS.Timeout;
+
+  constructor(private readonly cleanupIntervalMs: number = 30000) {
+    this.cleanupInterval = setInterval(() => {
+      this.prune();
+    }, this.cleanupIntervalMs);
+  }
 
   add(socket: Socket, assignment: RoomAssignment): void {
     this.remove(socket);
@@ -61,5 +68,22 @@ export class DefaultRoomRegistry implements RoomRegistry {
 
   private getSubdocKey(roomId: string, subdocId: string): string {
     return `${roomId}::${subdocId}`;
+  }
+
+  prune(): void {
+    for (const [socket] of this.socketAssignments) {
+      if (!socket.connected) {
+        this.remove(socket);
+      }
+    }
+  }
+
+  dispose(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    this.socketAssignments.clear();
+    this.roomIndex.clear();
+    this.subdocIndex.clear();
   }
 }

@@ -20,6 +20,16 @@ export class DocumentSnapshot {
   @Column({ type: 'bigint' })
   timestamp!: number;
 
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt!: Date;
+
+  @Column({
+    type: 'datetime',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updatedAt!: Date;
+
   @Column({ type: 'text' })
   data!: string;
 
@@ -44,6 +54,16 @@ export class UpdateHistory {
 
   @Column({ type: 'bigint' })
   timestamp!: number;
+
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt!: Date;
+
+  @Column({
+    type: 'datetime',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updatedAt!: Date;
 
   @Column({ type: 'text' })
   metadata!: string;

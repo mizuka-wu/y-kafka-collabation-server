@@ -17,6 +17,8 @@ export interface KafkaMessage {
 }
 
 export interface KafkaConsumerRunConfig {
+  autoCommit?: boolean;
+  restartOnFailure?: (error: Error) => Promise<boolean>;
   eachMessage: (payload: KafkaMessage) => Promise<void>;
 }
 
