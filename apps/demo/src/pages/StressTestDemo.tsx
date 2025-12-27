@@ -38,14 +38,21 @@ export const StressTestDemo = () => {
     );
 
     const newClients: ProtocolProvider[] = [];
+    const managers: MultiplexedSocketManager[] = [];
 
     for (let i = 0; i < clientCount; i++) {
       const ydoc = new Y.Doc();
+      // Create a dedicated manager for each client to simulate distinct connections
+      const manager = new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL, {
+        autoConnect: true,
+      });
+      managers.push(manager);
+
       const provider = new ProtocolProvider(ydoc, {
-        url: `${VITE_COLLAB_SERVER_URL}/socket.io/?room=${docId}`,
+        url: `virtual://${docId}`,
         docId: docId,
         roomId: 'stress',
-        WebSocketImpl: SocketIoWebSocket,
+        WebSocketImpl: createVirtualWebSocketFactory(manager),
         autoConnect: true,
       });
 
@@ -67,6 +74,8 @@ export const StressTestDemo = () => {
     }
 
     clientsRef.current = newClients;
+    // Attach managers to clientsRef for cleanup
+    (clientsRef.current as any).managers = managers;
 
     // Simulate activity
     intervalRef.current = setInterval(() => {

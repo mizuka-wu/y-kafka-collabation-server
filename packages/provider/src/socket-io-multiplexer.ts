@@ -37,6 +37,7 @@ export class MultiplexedSocketManager {
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      forceNew: true,
       ...opts,
     });
 
@@ -89,6 +90,10 @@ export class MultiplexedSocketManager {
 
   send(docId: string, roomId: string, payload: string) {
     this.socket.emit('protocol-message', { docId, roomId, payload });
+  }
+
+  connect() {
+    this.socket.connect();
   }
 
   disconnect() {

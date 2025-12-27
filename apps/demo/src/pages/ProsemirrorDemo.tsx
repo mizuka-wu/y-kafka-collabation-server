@@ -43,13 +43,27 @@ export const ProsemirrorDemo = () => {
   const [providerLog, setProviderLog] = useState<string[]>([]);
 
   const socketManager = useMemo(
-    () => new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL),
+    () =>
+      new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL, {
+        autoConnect: false,
+      }),
     [],
   );
 
   useEffect(() => {
+    // Handle React Strict Mode double-invocation
+    const manager = socketManager as any;
+    if (manager._disconnectTimeout) {
+      clearTimeout(manager._disconnectTimeout);
+      manager._disconnectTimeout = undefined;
+    }
+
+    socketManager.connect();
+
     return () => {
-      socketManager.disconnect();
+      manager._disconnectTimeout = setTimeout(() => {
+        socketManager.disconnect();
+      }, 100);
     };
   }, [socketManager]);
 
@@ -148,7 +162,7 @@ export const ProsemirrorDemo = () => {
     return () => {
       provider.destroy();
     };
-  }, [ydoc, docId, awareness, pushProviderLog]);
+  }, [ydoc, docId, awareness, pushProviderLog, socketManager]);
 
   const switchDoc = (e: React.FormEvent) => {
     e.preventDefault();
