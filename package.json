@@ -7,6 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:demo": "turbo run dev --filter @y-kafka-collabation-server/demo",
+    "dev:server": "turbo run dev --filter @y-kafka-collabation-server/server",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
