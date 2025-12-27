@@ -136,7 +136,7 @@ export const StressTestDemo = () => {
                 padding: '0.5rem',
                 background: 'var(--bg-dark)',
                 border: '1px solid var(--border)',
-                color: 'white',
+                color: 'var(--text-main)',
                 borderRadius: '4px',
               }}
             />
@@ -151,7 +151,7 @@ export const StressTestDemo = () => {
                 padding: '0.5rem',
                 background: 'var(--bg-dark)',
                 border: '1px solid var(--border)',
-                color: 'white',
+                color: 'var(--text-main)',
                 borderRadius: '4px',
               }}
             />
