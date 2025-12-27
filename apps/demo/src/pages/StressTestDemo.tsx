@@ -3,8 +3,9 @@ import * as Y from '@y/y';
 import {
   ProtocolProvider,
   ProviderStatus,
+  MultiplexedSocketManager,
+  createVirtualWebSocketFactory,
 } from '@y-kafka-collabation-server/provider';
-import { SocketIoWebSocket } from '../socketIoWebSocket';
 
 const VITE_COLLAB_SERVER_URL =
   import.meta.env.VITE_COLLAB_SERVER_URL ?? 'http://localhost:3000';
@@ -90,6 +91,11 @@ export const StressTestDemo = () => {
       clearInterval(intervalRef.current);
     }
     clientsRef.current.forEach((p) => p.destroy());
+    const managers = (clientsRef.current as any)
+      .managers as MultiplexedSocketManager[];
+    if (managers) {
+      managers.forEach((m) => m.disconnect());
+    }
     clientsRef.current = [];
   }, []);
 

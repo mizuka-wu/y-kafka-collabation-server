@@ -10,6 +10,8 @@ import { Awareness } from '@y/protocols/awareness';
 import {
   ProtocolProvider,
   ProviderStatus,
+  MultiplexedSocketManager,
+  createVirtualWebSocketFactory,
 } from '@y-kafka-collabation-server/provider';
 import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -18,7 +20,6 @@ import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror';
-import { SocketIoWebSocket } from '../socketIoWebSocket';
 import { fetchStatus, persistSnapshot, ServerStatus } from '../lib/api';
 
 const VITE_COLLAB_SERVER_URL =
@@ -40,6 +41,17 @@ export const ProsemirrorDemo = () => {
     useState<ProviderStatus>('disconnected');
   const [lastProviderSync, setLastProviderSync] = useState<string | null>(null);
   const [providerLog, setProviderLog] = useState<string[]>([]);
+
+  const socketManager = useMemo(
+    () => new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL),
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      socketManager.disconnect();
+    };
+  }, [socketManager]);
 
   const handlePersist = useCallback(async () => {
     const snapshot = JSON.stringify(ydoc.toJSON());
@@ -102,12 +114,11 @@ export const ProsemirrorDemo = () => {
     setLastProviderSync(null);
     setProviderStatus('disconnected');
 
-    const providerUrl = `${VITE_COLLAB_SERVER_URL}/socket.io/?room=${docId}`;
     const provider = new ProtocolProvider(ydoc, {
-      url: providerUrl,
+      url: `virtual://${docId}`,
       docId: docId,
       roomId: 'collab-doc', // Use 'collab-doc' as the room type/namespace
-      WebSocketImpl: SocketIoWebSocket,
+      WebSocketImpl: createVirtualWebSocketFactory(socketManager),
       awareness,
       metadataCustomizer: (metadata) => ({
         ...metadata,
