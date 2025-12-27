@@ -2,19 +2,27 @@
   "name": "@y-kafka-collabation-server/protocol",
   "version": "0.0.0",
   "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "generate:component": "turbo gen react-component",
     "check-types": "tsc --noEmit",
-    "build": "tsc -b",
+    "build": "rollup -c",
     "test": "vitest run"
   },
   "devDependencies": {
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
+    "@y-kafka-collabation-server/rollup-config": "workspace:*",
     "@types/node": "^22.15.3",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
