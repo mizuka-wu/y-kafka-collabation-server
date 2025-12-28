@@ -53,6 +53,24 @@
             </li>
           </ul>
         </div>
+
+        <div class="http-panel">
+          <h3>HTTP 降级状态</h3>
+          <button type="button" @click="refreshDocumentState">刷新 HTTP 状态</button>
+          <div v-if="documentState" class="http-details">
+            <p>快照：{{ documentState.snapshot ? '存在' : '无' }}</p>
+            <p>历史 Updates：{{ documentState.updates.length }}</p>
+            <p>Kafka Aggregated：{{ documentState.kafkaUpdates.length }}</p>
+            <p v-if="documentState.kafkaTail">
+              Kafka Tail：{{ documentState.kafkaTail.topic }} / P{{ documentState.kafkaTail.partition }} @
+              {{ documentState.kafkaTail.offset }}
+            </p>
+            <p v-else>Kafka Tail：暂无</p>
+          </div>
+          <div v-else class="http-details">
+            <p>尚未加载 HTTP 状态</p>
+          </div>
+        </div>
       </aside>
     </div>
   </div>
