@@ -12,6 +12,8 @@ import {
 } from '@y-kafka-collabation-server/protocol';
 import { Buffer } from 'buffer';
 
+export type CollabChannel = 'doc' | 'awareness' | 'control';
+
 @Injectable()
 export class ServerCollabService implements OnModuleDestroy {
   private readonly logger = new Logger(ServerCollabService.name);
@@ -141,19 +143,26 @@ export class ServerCollabService implements OnModuleDestroy {
     };
   }
 
-  async publishUpdate(roomId: string, docId: string, content: Uint8Array) {
+  async publishUpdate(params: {
+    roomId: string;
+    docId: string;
+    channel?: CollabChannel;
+    content: Uint8Array;
+  }) {
+    const { roomId, docId, channel = 'doc', content } = params;
     await this.kafkaReady;
-    const topic = this.topicFor(roomId);
+    const topic = this.topicFor(roomId, channel);
     await this.producer.send({
       topic,
       messages: [{ value: Buffer.from(content) }],
     });
     this.logger.log(
-      `Published update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${content.byteLength})`,
+      `Published ${channel} update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${content.byteLength})`,
     );
     return {
       docId,
       roomId,
+      channel,
       topic,
       content: Buffer.from(content).toString('base64'),
     };
@@ -216,8 +225,14 @@ export class ServerCollabService implements OnModuleDestroy {
     }
   }
 
-  private topicFor(roomId: string) {
-    return `docs-${roomId}`;
+  private topicFor(roomId: string, channel: CollabChannel = 'doc') {
+    const prefix =
+      channel === 'awareness'
+        ? 'awareness'
+        : channel === 'control'
+          ? 'control'
+          : 'docs';
+    return `${prefix}-${roomId}`;
   }
 
   private async connectKafka() {
@@ -229,6 +244,14 @@ export class ServerCollabService implements OnModuleDestroy {
     await this.persistenceReady;
     await this.consumer.connect();
     await this.consumer.subscribe({ topic: /^docs-/, fromBeginning: false });
+    await this.consumer.subscribe({
+      topic: /^awareness-/,
+      fromBeginning: false,
+    });
+    await this.consumer.subscribe({
+      topic: /^control-/,
+      fromBeginning: false,
+    });
     await this.consumer.run({
       eachMessage: async ({ message }) => {
         if (!message.value) {

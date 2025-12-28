@@ -13,7 +13,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Buffer } from 'buffer';
 import { decodeKafkaEnvelope } from '@y-kafka-collabation-server/protocol';
 import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
-import { ServerCollabService } from './server-collab.service';
+import { CollabChannel, ServerCollabService } from './server-collab.service';
 
 type ProtocolPayload =
   | string
@@ -25,6 +25,7 @@ type ProtocolPayload =
 type ClientProtocolMessage = {
   roomId?: string;
   docId: string;
+  channel?: CollabChannel;
   payload: ProtocolPayload;
 };
 
@@ -140,6 +141,7 @@ export class ServerCollabGateway
   ) {
     const docId = message.docId;
     const roomId = message.roomId ?? 'default';
+    const channel = (message.channel as CollabChannel | undefined) ?? 'doc';
     const payload = message.payload;
     if (!docId) {
       throw new Error('protocol-message missing docId');
@@ -159,7 +161,12 @@ export class ServerCollabGateway
       );
     }
 
-    return this.collabService.publishUpdate(roomId, docId, buffer);
+    return this.collabService.publishUpdate({
+      roomId,
+      docId,
+      channel,
+      content: buffer,
+    });
   }
 
   private addSocketToRoom(docId: string, socket: Socket) {
