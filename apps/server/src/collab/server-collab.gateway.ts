@@ -12,6 +12,7 @@ import { Logger } from '@nestjs/common';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Buffer } from 'buffer';
 
+import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 import { ServerCollabService } from './server-collab.service';
 
 type ProtocolPayload =
@@ -20,6 +21,24 @@ type ProtocolPayload =
   | ArrayBufferView
   | Uint8Array
   | Buffer;
+
+type ClientProtocolMessage = {
+  roomId?: string;
+  docId: string;
+  payload: ProtocolPayload;
+};
+
+type TransportProtocolMessage = {
+  metadata: ProtocolMessageMetadata;
+  payload: ProtocolPayload;
+  topic?: string;
+  partition?: number;
+  offset?: string;
+  roomId?: string;
+  docId?: string;
+};
+
+type GatewayProtocolMessage = ClientProtocolMessage & TransportProtocolMessage;
 
 const toUint8Array = (payload: ProtocolPayload): Uint8Array => {
   if (payload instanceof Uint8Array) {
@@ -111,17 +130,22 @@ export class ServerCollabGateway
   }
 
   @SubscribeMessage('protocol-message')
-  async handleProtocolMessage(message: {
-    roomId?: string;
-    docId: string;
-    payload: ProtocolPayload;
-  }) {
-    const buffer = toUint8Array(message.payload);
-    return this.collabService.publishUpdate(
-      message.roomId ?? 'default',
-      message.docId,
-      buffer,
-    );
+  async handleProtocolMessage(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() message: GatewayProtocolMessage,
+  ) {
+    const metadata =
+      'metadata' in message
+        ? (message.metadata as ProtocolMessageMetadata)
+        : undefined;
+    const docId = message.docId ?? metadata?.docId;
+    const roomId = message.roomId ?? metadata?.roomId ?? 'default';
+    const payload = message.payload;
+    if (!docId) {
+      throw new Error('protocol-message missing docId');
+    }
+    const buffer = toUint8Array(payload);
+    return this.collabService.publishUpdate(roomId, docId, buffer);
   }
 
   private addSocketToRoom(docId: string, socket: Socket) {
