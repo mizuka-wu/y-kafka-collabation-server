@@ -38,7 +38,7 @@ export const StressTestDemo = () => {
     const newClients: ProtocolProvider[] = [];
 
     for (let i = 0; i < clientCount; i++) {
-      const ydoc = new Y.Doc();
+      const ydoc = new Y.Doc({ guid: docId });
 
       const provider = new ProtocolProvider(ydoc, {
         url: VITE_COLLAB_SERVER_URL,
