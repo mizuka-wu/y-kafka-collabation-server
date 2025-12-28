@@ -64,6 +64,12 @@ export class ServerCollabController {
   })
   @ApiResponse({ status: 201, description: 'Snapshot persisted successfully.' })
   async persist(@Body() payload: PersistSnapshotDto) {
-    return this.collab.persistSnapshot(payload.docId, payload.snapshot);
+    return this.collab.persistSnapshot({
+      docId: payload.docId,
+      snapshot: payload.snapshot,
+      version: payload.version,
+      subdocId: payload.subdocId,
+      timestamp: payload.timestamp,
+    });
   }
 }

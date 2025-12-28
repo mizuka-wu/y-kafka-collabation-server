@@ -3,7 +3,6 @@ import { Kafka, Producer, Partitioners, Consumer } from 'kafkajs';
 import { DataSource, Repository, MoreThan } from 'typeorm';
 import {
   DocumentSnapshot,
-  SnowflakeIdGenerator,
   UpdateHistory,
 } from '@y-kafka-collabation-server/persistence';
 import {
@@ -14,6 +13,12 @@ import { Buffer } from 'buffer';
 
 export type CollabChannel = 'doc' | 'awareness' | 'control';
 
+type KafkaTailPosition = {
+  topic: string;
+  partition: number;
+  offset: string;
+};
+
 @Injectable()
 export class ServerCollabService implements OnModuleDestroy {
   private readonly logger = new Logger(ServerCollabService.name);
@@ -21,6 +26,7 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly producer: Producer;
   private readonly consumer: Consumer;
   private readonly messages = new Map<string, Uint8Array[]>();
+  private readonly kafkaTail = new Map<string, KafkaTailPosition>();
   private readonly dataSource: DataSource;
   private snapshotRepo?: Repository<DocumentSnapshot>;
   private historyRepo?: Repository<UpdateHistory>;
@@ -30,7 +36,6 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly updateListeners: Array<
     (metadata: ProtocolMessageMetadata, payload: Uint8Array) => void
   > = [];
-  private readonly snowflake: SnowflakeIdGenerator;
 
   constructor() {
     const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
@@ -72,8 +77,6 @@ export class ServerCollabService implements OnModuleDestroy {
     });
     this.persistenceReady = this.initializePersistence();
     this.kafkaConsumerReady = this.startKafkaConsumer();
-    // Initialize Snowflake with worker 2 (server)
-    this.snowflake = new SnowflakeIdGenerator(2, 1);
   }
 
   async getStatus() {
@@ -168,16 +171,26 @@ export class ServerCollabService implements OnModuleDestroy {
     };
   }
 
-  async persistSnapshot(docId: string, snapshot: string) {
+  async persistSnapshot(params: {
+    docId: string;
+    snapshot: string;
+    version: string;
+    subdocId?: string;
+    timestamp?: number;
+  }) {
+    const { docId, snapshot, version, subdocId, timestamp } = params;
+    if (!version) {
+      throw new Error('Snapshot version is required');
+    }
     await this.persistenceReady;
     if (!this.snapshotRepo) {
       throw new Error('Persistence layer not initialized');
     }
-    const version = this.snowflake.nextId();
     const record = this.snapshotRepo.create({
       docId,
+      subdocId,
       version,
-      timestamp: Date.now(),
+      timestamp: timestamp ?? Date.now(),
       data: snapshot,
       storageLocation: 'server',
     });
@@ -253,7 +266,7 @@ export class ServerCollabService implements OnModuleDestroy {
       fromBeginning: false,
     });
     await this.consumer.run({
-      eachMessage: async ({ message }) => {
+      eachMessage: async ({ topic, partition, message }) => {
         if (!message.value) {
           return;
         }
@@ -267,6 +280,11 @@ export class ServerCollabService implements OnModuleDestroy {
           if (!metadata.docId) {
             return;
           }
+          this.kafkaTail.set(metadata.docId, {
+            topic,
+            partition,
+            offset: message.offset,
+          });
           this.enqueueMessage(metadata.docId, envelope);
           await this.recordHistory(metadata, envelope);
           for (const listener of this.updateListeners) {
@@ -291,22 +309,22 @@ export class ServerCollabService implements OnModuleDestroy {
   }
 
   private async recordHistory(
-    metadata: {
-      docId?: string;
-      subdocId?: string;
-      roomId?: string;
-      timestamp?: number;
-      version?: string;
-    },
+    metadata: ProtocolMessageMetadata,
     envelope: Uint8Array,
   ) {
     if (!this.historyRepo || !metadata.docId) {
       return;
     }
+    if (!metadata.version) {
+      this.logger.warn(
+        `Skipping history persistence for ${metadata.docId} due to missing metadata.version`,
+      );
+      return;
+    }
     const record = this.historyRepo.create({
       docId: metadata.docId,
       subdocId: metadata.subdocId,
-      version: metadata.version ?? String(this.snowflake.nextId()),
+      version: metadata.version,
       timestamp: metadata.timestamp ?? Date.now(),
       metadata: JSON.stringify({ roomId: metadata.roomId }),
       payload: Buffer.from(envelope).toString('base64'),

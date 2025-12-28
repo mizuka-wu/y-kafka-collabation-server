@@ -1,5 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+class KafkaTailDto {
+  @ApiProperty({ description: 'Kafka topic name' })
+  topic!: string;
+
+  @ApiProperty({ description: 'Kafka partition number' })
+  partition!: number;
+
+  @ApiProperty({ description: 'Kafka offset (string)' })
+  offset!: string;
+}
+
 export class DocumentStateDto {
   @ApiProperty({ description: 'The unique document identifier' })
   docId: string;
@@ -16,4 +27,12 @@ export class DocumentStateDto {
     type: [String],
   })
   updates: string[];
+
+  @ApiProperty({
+    description: 'Latest Kafka tail position used for replay',
+    required: false,
+    nullable: true,
+    type: KafkaTailDto,
+  })
+  kafkaTail?: KafkaTailDto | null;
 }
