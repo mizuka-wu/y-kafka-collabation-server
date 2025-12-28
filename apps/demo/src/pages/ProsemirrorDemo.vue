@@ -137,6 +137,8 @@ const providerLog = ref<string[]>([]);
 let statusInterval: ReturnType<typeof setInterval> | null = null;
 const lastSnapshotVersion = ref<string | null>(null);
 
+const textDecoder = new TextDecoder();
+
 const awarenessDisabled = computed(
   () => route.query.disableAwareness === '1',
 );
@@ -167,6 +169,61 @@ watch(
 
 const pushProviderLog = (message: string) => {
   providerLog.value = [message, ...providerLog.value].slice(0, 10);
+};
+
+const decodeEnvelopeMetadata = (envelope: Uint8Array) => {
+  if (envelope.length < 5) return null;
+  const format = envelope[0];
+  if (format !== 1) return null;
+  const view = new DataView(
+    envelope.buffer,
+    envelope.byteOffset,
+    envelope.byteLength,
+  );
+  const metadataLength = view.getUint32(1, true);
+  const start = 5;
+  const end = start + metadataLength;
+  if (envelope.length < end) return null;
+  try {
+    return JSON.parse(
+      textDecoder.decode(envelope.subarray(start, end)),
+    ) as Record<string, unknown>;
+  } catch (error) {
+    console.warn('Failed to decode metadata', error);
+    return null;
+  }
+};
+
+const attachSendSpy = (providerInstance: ProtocolProvider) => {
+  const original = (providerInstance as any).sendEnvelope?.bind(
+    providerInstance,
+  ) as
+    | ((
+      docId: string,
+      roomId: string | undefined,
+      envelope: Uint8Array,
+    ) => void)
+    | undefined;
+  if (!original) {
+    return () => { };
+  }
+  (providerInstance as any).sendEnvelope = (
+    docId: string,
+    roomId: string | undefined,
+    envelope: Uint8Array,
+  ) => {
+    const metadata = decodeEnvelopeMetadata(envelope);
+    const channel = metadata?.note ?? 'update';
+    pushProviderLog(
+      `emit protocol-message · channel=${channel} · doc=${metadata?.docId ?? docId
+      } · room=${metadata?.roomId ?? roomId ?? 'default'} · bytes=${envelope.byteLength
+      }`,
+    );
+    return original(docId, roomId, envelope);
+  };
+  return () => {
+    (providerInstance as any).sendEnvelope = original;
+  };
 };
 
 const refreshDocumentState = async () => {
@@ -287,6 +344,7 @@ watchEffect((onCleanup) => {
     lastProviderSync.value = new Date().toISOString();
     pushProviderLog(`SyncStep2 完成 · ${new Date().toLocaleTimeString()}`);
   });
+  const detachSendSpy = attachSendSpy(instance);
   if (!disabled) {
     instance.on('awareness', (changes) => {
       const touched = [
@@ -304,6 +362,7 @@ watchEffect((onCleanup) => {
   refreshDocumentState();
 
   onCleanup(() => {
+    detachSendSpy();
     instance.destroy();
     if (provider.value === instance) {
       provider.value = null;
