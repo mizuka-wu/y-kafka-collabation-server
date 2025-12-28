@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PublishUpdateDto {
   @ApiProperty({
@@ -11,6 +11,28 @@ export class PublishUpdateDto {
   @ApiProperty({ description: 'The document ID' })
   docId: string;
 
+  @ApiPropertyOptional({
+    description: 'Sub document identifier used for fine-grained routing',
+  })
+  subdocId?: string;
+
+  @ApiProperty({
+    description: 'Monotonic version string for this update',
+    example: '42',
+  })
+  version: string;
+
+  @ApiPropertyOptional({
+    description: 'Sender identifier, usually the Y.Doc clientID',
+  })
+  senderId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Unix timestamp in milliseconds',
+    type: Number,
+  })
+  timestamp?: number;
+
   @ApiProperty({
     description: 'Message channel: doc / awareness / control',
     required: false,
@@ -18,6 +40,11 @@ export class PublishUpdateDto {
     default: 'doc',
   })
   channel?: 'doc' | 'awareness' | 'control';
+
+  @ApiPropertyOptional({
+    description: 'Optional note flag stored inside metadata',
+  })
+  note?: string;
 
   @ApiProperty({ description: 'The Base64 encoded update content' })
   content: string;

@@ -65,6 +65,43 @@ sequenceDiagram
 * **状态获取 (`GET /collab/doc/:docId`)**: 混合读取 Persistence 层的最新 `DocumentSnapshot` 和内存中缓存的近期 Kafka `updates`。这允许客户端一次性获得“基线 + 增量”，快速构建最新 Y.Doc 状态，而无需建立长连接。
 * **更新提交 (`POST /collab/publish`)**: 允许通过 HTTP POST 直接将 update binary 发送至 Kafka topic。此路径绕过了 Socket.IO 网关，但后续处理（Consumer 消费、Persistence 落盘）完全复用现有链路，保证了数据一致性。
 
+## 3.2 协议 & 消费整改 Checklist
+
+> 勾选以下条目以确保 server 实现重新对齐 README 中的协议与消费约定。建议按顺序推进，避免 envelope/metadata 失配。
+>
+> 追踪表（可填 `Owner` 与 Issue/PR 链接）：
+>
+> | Checklist 项 | Owner | Issue / PR | 状态 |
+> | --- | --- | --- | --- |
+> | HTTP Publish 元数据补齐 & envelope 化 | - | - | ☑ |
+> | WebSocket Gateway 保证协议一致 | - | - | ☑ |
+> | Kafka 订阅 & topic resolver 抽象 | - | - | ☐ |
+> | `GET /collab/doc/:docId` 输出对齐 README | - | - | ☐ |
+> | `GET /collab/messages` 调试接口 | - | - | ☐ |
+> | 历史写入的强校验 | - | - | ☐ |
+> | 文档 & Swagger 更新 | - | - | ☐ |
+
+* [x] **HTTP Publish 元数据补齐 & envelope 化**
+  * `PublishUpdateDto` 增加 `version`、`subdocId`、`senderId`、`timestamp`、可选 `metadata`，`channel` 枚举保持 `doc/awareness/control`。
+  * `/collab/publish` 接口将 Base64 payload 与上述 metadata 组装为 `ProtocolMessageMetadata`，使用 `encodeKafkaEnvelope` 生成 Kafka 消息；缺失关键字段时直接返回 400。
+* [x] **WebSocket Gateway 保证协议一致**
+  * `protocol-message` 事件若收到裸 Yjs update，需要结合客户端上传的 metadata 封装后再写 Kafka；能正常解析 envelope 时复用其中 metadata。
+  * Gateway 向 Kafka 写入前始终通过 `encodeKafkaEnvelope`，避免 consumer decode 失败。
+* [ ] **Kafka 订阅 & topic resolver 抽象**
+  * 在 server 层引入 `TopicResolver`，允许根据 `roomId`/`tenantId` 自定义 topic pattern；`ServerCollabService.topicFor` 与 consumer `subscribe` 均依赖该 resolver。
+  * Consumer 缓存消息时以 `metadata.docId/subdocId` 作为 key，兼容同一 doc 分布在多个 topic 的场景。
+* [ ] **`GET /collab/doc/:docId` 输出对齐 README**
+  * 响应字段限定为 `{ docId, snapshot, updates }`（updates 已合并 persistence history + Kafka 增量）；若需调试字段，可增加 `_debug` 子对象并在文档中说明。
+  * `aggregateKafkaUpdates` 的结果直接合入 `updates`，保证 HTTP 阅读态与 WebSocket 同步体验一致。
+* [ ] **`GET /collab/messages` 调试接口**
+  * 在 controller 中暴露新路由，返回最近缓存的 envelope Base64（可选 `raw=true` 输出 metadata）；用于排查 metadata/partition。
+* [ ] **历史写入的强校验**
+  * `recordHistory` 前检查 envelope metadata，缺 `version` 或 `docId` 时记录错误并拒绝入库，防止 `update_history` 空洞。
+  * 对 HTTP publish 与 Gateway path 增加日志，标记 metadata 缺失或类型错误的请求。
+* [ ] **文档 & Swagger 更新**
+  * 更新 `README.md` 与 `apps/server/README.md` 描述新的 HTTP 契约和 TopicResolver 使用方式。
+  * Swagger (`DocumentBuilder`) 自动暴露新增字段，示例请求包含完整 metadata，便于后续验证。
+
 ## 4. 持续聚合与历史数据服务
 
 1. **定期持久化服务**：Kafka 总线持续输出 doc/awareness payload，定时任务订阅这些 topic，将 `ProtocolMessageMetadata` + update binary 交由 `PersistenceCoordinator` 处理：先写 `document_snapshots`（Y.Doc 快照内含版本号），再附带 `update_history`（日志）。该服务可自定义 `PersistenceAdapter`（SQL/对象存储）确保可重放与审计。@packages/persistence/README.md#3-47
@@ -182,3 +219,67 @@ rys 聚合在此处承担“批量处理”角色：无论是从 Kafka 还是 HT
 * [lib0 encoding](https://github.com/yjs/lib0)：Kafka envelope 的 encode/decode 依赖其 `encoding`/`decoding` 工具。
 * [Kafka consumer group design](https://kafka.apache.org/documentation/#consumerconfigs_group.instance.id)：指导 partition 分配与多实例扩展的实践。
 * [rys 聚合库](https://github.com/equalsraf/rys)：用于 HTTP 降级、初次同步等场景的批量聚合运算。
+
+## 8. 协同服务器测试要点
+
+### 8.1 测试范围总览
+
+1. **协议与 metadata**：客户端发出的所有 `protocol-message`/HTTP publish 请求都应包含 `roomId/docId/subdocId/version/senderId/timestamp`，服务器应在写入 Kafka 前做完整性校验并拒绝缺失字段。
+2. **Kafka 生产与消费链路**：验证 doc/awareness/control topic 是否根据 `TopicResolver` 正确解析，消息是否由不同 consumer group 成员按 partition 均衡分配并成功广播回 `RoomRegistry` 持有的 socket。
+3. **持久化与回放**：`UpdateHistory` 与 `DocumentSnapshot` 是否按 version 顺序写入；`GET /collab/doc/:docId` 是否能输出 `{ snapshot, updates }` 并附带最新的 Kafka 聚合增量。
+4. **降级链路**：HTTP publish/read-only 模式、sync-request（客户端发送 envelope `note=sync-request`）能否触发服务器侧快照回放。
+5. **Demo/Provider 行为**：`apps/demo` 在 Y.Doc 初始化、更新与 awareness 变更时是否正确调用 REST/Kafka gateway，并能在多实例并发下保持同一文档状态一致。
+
+### 8.2 服务器侧验证行为与需要记录的数据
+
+1. **WebSocket Gateway**
+   * 行为：`join` 时将 socket 绑定到 `docId`，`protocol-message` 时优先尝试 decode envelope，无法 decode 时结合客户端 metadata 重新打包后调用 `collabService.publishUpdate`。
+   * 数据：记录 `socket.id`, `docId`, `roomId`, `channel`, `metadata.version`, Kafka `topic/partition/offset`。若 envelope 解码失败需输出原始 payload 大小与错误堆栈。
+2. **ServerCollabService.publishUpdate / Kafka Producer**
+   * 行为：基于 channel 解析 topic、调用 `encodeKafkaEnvelope`，并在 producer 成功后缓存最近 N 条消息用于 `/collab/messages`。
+   * 数据：`topic`, `partition`, `offset`, `metadata.senderId`, `payload byteLength`，同时监控生产耗时与异常。
+3. **Kafka Consumer & RoomRegistry**
+   * 行为：消费后按 `metadata.roomId/subdocId` 查找 socket，排除 `senderId === socket.data.senderId` 的自回放。
+   * 数据：`roomId`, `subdocId`, 匹配 socket 数量，广播耗时。必要时记录未命中 room 的消息以排查客户端订阅状态。
+4. **持久化 (snapshot/history)**
+   * 行为：`recordHistory` 写入前验证 `docId` 与递增的 `version`，触发 `persistSnapshot` 时校验 Base64/JSON 格式。
+   * 数据：`docId`, `version`, `snapshot byteLength`, `history rows inserted`, 与数据库事务耗时。若 version 逆序需报警。
+5. **HTTP 调试接口**
+   * 行为：`GET /collab/status` 汇总 `kafkaMessageCount` 与 `latestSnapshot`，`GET /collab/messages` 输出最近 envelope（含 metadata）用于前端对照。
+   * 数据：返回结果中 `docId`, `kafkaMessageCount`, `kafkaTail`（topic/partition/offset）应与 Kafka 实际 offset 对齐，可对比 `kafka-consumer-groups` 工具。
+
+### 8.3 客户端侧验证行为与需要采集的数据
+
+1. **Y.Doc 初始化与强同步**
+   * 行为：启动时先调用 `GET /collab/doc/:docId`，使用 `Y.applyUpdate`/`Y.decodeStateVector` 合并 snapshot 与 updates，再建立 Socket.IO/HTTP 连接。
+   * 数据：记录 `snapshot size`, `updates count`, 应用耗时；若 `stateVector` version 与服务器日志不一致需输出本地 `doc.clientID` 与版本。
+2. **ProtocolProvider metadata 填充**
+   * 行为：每次 `Y.doc.on('update')` 时生成 `ProtocolMessageMetadata`，`roomId` 默认 `collab-doc`，`docId` 采用 GUID，`version` 递增，`senderId` 使用 `doc.clientID`。
+   * 数据：本地缓存最近一次发送与服务器回放的 `version`，若出现跳号需要打印差值与对应 payload 哈希。
+3. **Awareness 与 cursor**
+   * 行为：`awareness.on('update')` 时发送 `channel='awareness'` 的 payload，并监听服务器广播的同类型消息更新本地 peers。
+   * 数据：记录 `awareness.states.size`, `senderId`, `timestamp`；若接收不到自己以外的 peers，需要对比服务器的 RoomRegistry socket 列表与 Kafka 消费日志。
+4. **降级/恢复路径**
+   * 行为：当 WebSocket 断开或自动降级到 HTTP 时，客户端应切换为轮询 `GET /collab/doc/:docId` 并在本地去重 version；恢复连接后发送 `sync-request` envelope。
+   * 数据：降级期间的 `poll interval`, `updates merged`, `sinceVersion`，以及重新连回后服务器响应的 payload 数量，确保没有重复应用。
+5. **并发编辑实验**
+   * 行为：至少启动两个 demo 客户端对同一 `roomId/docId` 进行交叉编辑，观察 Kafka 广播与 Y.Doc merge 是否一致。
+   * 数据：每端统计 `local version`, `remote version`, `latency (send -> receive)`；若发现偏差，配合服务器 `/collab/messages` 输出 envelope 进行对比。
+
+### 8.4 实操验证流程建议
+
+1. **准备环境**：启动 Kafka/MySQL 与 `apps/server`、`apps/demo`，确保 `.env` 中的 `KAFKA_BROKERS`、`COLLAB_SERVER_URL` 配置正确。
+2. **单客户端基线**：
+   * 步骤：打开一个 demo，创建文档，触发 `Y.doc.update` 与 `awareness` 变更。
+   * 预期：`GET /collab/status` 能看到对应 `docId`，Kafka 消息计数递增，`/collab/doc/:docId` 返回 snapshot+updates。
+3. **多客户端协同**：
+   * 步骤：第二个 demo 通过相同 `docId` 加入，先触发 `sync-request`，再进行交错编辑。
+   * 预期：双方 `version` 线性递增、延迟稳定（<200ms），服务器广播日志显示两个 socket 都收到消息。
+4. **降级/恢复**：
+   * 步骤：断开其中一端的 WebSocket（如关闭网络或模拟 503），观察客户端是否切换 HTTP 模式并继续收/发更新；恢复后发送 `sync-request`。
+   * 预期：降级期间不会丢 update，恢复后只需重播缺口；服务器日志显示来自 HTTP publish 的消息成功落入 Kafka。
+5. **持久化回放**：
+   * 步骤：调用 `POST /collab/persist` 生成 snapshot，清空客户端状态后仅靠 `GET /collab/doc/:docId` + Kafka 广播恢复。
+   * 预期：回放后文档状态与持久化前一致，`update_history` 表存在相应 version 记录。
+
+通过上述步骤可系统化排查 demo 端“无法协同”的根因：若 metadata 缺失，可以在服务器日志中迅速定位；若 Kafka 广播缺席，则检查 TopicResolver 与 consumer group；若客户端未按 version 应用，则通过本地统计与服务器 `/collab/messages` 对比定位到具体 payload。

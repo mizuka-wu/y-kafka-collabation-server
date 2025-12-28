@@ -8,11 +8,13 @@ import {
 } from '@y-kafka-collabation-server/persistence';
 import {
   decodeKafkaEnvelope,
+  encodeKafkaEnvelope,
   ProtocolMessageMetadata,
 } from '@y-kafka-collabation-server/protocol';
 import { Buffer } from 'buffer';
 
-export type CollabChannel = 'doc' | 'awareness' | 'control' | 'cursor';
+import { CollabChannel } from './types';
+import { EnvTopicResolver, TopicResolver } from '../kafka/topic-resolver';
 
 type KafkaTailPosition = {
   topic: string;
@@ -26,6 +28,7 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly kafka: Kafka;
   private readonly producer: Producer;
   private readonly consumer: Consumer;
+  private readonly topicResolver: TopicResolver;
   private readonly messages = new Map<string, Uint8Array[]>();
   private readonly kafkaTail = new Map<string, KafkaTailPosition>();
   private readonly dataSource: DataSource;
@@ -59,6 +62,7 @@ export class ServerCollabService implements OnModuleDestroy {
       groupId: process.env.KAFKA_CONSUMER_GROUP ?? 'collab-server-sync',
       allowAutoTopicCreation: true,
     });
+    this.topicResolver = new EnvTopicResolver();
 
     this.dataSource = new DataSource({
       type: 'mysql',
@@ -155,27 +159,33 @@ export class ServerCollabService implements OnModuleDestroy {
   }
 
   async publishUpdate(params: {
-    roomId: string;
-    docId: string;
+    metadata: ProtocolMessageMetadata;
     channel?: CollabChannel;
-    content: Uint8Array;
+    payload: Uint8Array;
   }) {
-    const { roomId, docId, channel = 'doc', content } = params;
+    const { metadata, channel = 'doc', payload } = params;
+    const roomId = metadata.roomId ?? metadata.docId;
+    const docId = metadata.docId;
+    if (!roomId || !docId) {
+      throw new Error('metadata.roomId and metadata.docId are required');
+    }
     await this.kafkaReady;
-    const topic = this.topicFor(roomId, channel);
+    const topic = this.resolveTopic(metadata, channel);
+    const envelope = encodeKafkaEnvelope(payload, metadata);
     await this.producer.send({
       topic,
-      messages: [{ value: Buffer.from(content) }],
+      messages: [{ value: Buffer.from(envelope) }],
     });
     this.logger.log(
-      `Published ${channel} update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${content.byteLength})`,
+      `Published ${channel} update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${payload.byteLength})`,
     );
     return {
       docId,
       roomId,
       channel,
       topic,
-      content: Buffer.from(content).toString('base64'),
+      payload: Buffer.from(payload).toString('base64'),
+      metadata,
     };
   }
 
@@ -246,14 +256,17 @@ export class ServerCollabService implements OnModuleDestroy {
     }
   }
 
-  private topicFor(roomId: string, channel: CollabChannel = 'doc') {
-    const prefix =
-      channel === 'awareness'
-        ? 'awareness'
-        : channel === 'control'
-          ? 'control'
-          : 'docs';
-    return `${prefix}-${roomId}`;
+  private resolveTopic(
+    metadata: ProtocolMessageMetadata,
+    channel: CollabChannel = 'doc',
+  ) {
+    if (channel === 'awareness') {
+      return this.topicResolver.resolveAwarenessTopic(metadata);
+    }
+    if (channel === 'control') {
+      return this.topicResolver.resolveControlTopic(metadata);
+    }
+    return this.topicResolver.resolveDocTopic(metadata);
   }
 
   private async aggregateKafkaUpdates(
@@ -304,15 +317,20 @@ export class ServerCollabService implements OnModuleDestroy {
   private async startKafkaConsumer() {
     await this.persistenceReady;
     await this.consumer.connect();
-    await this.consumer.subscribe({ topic: /^docs-/, fromBeginning: false });
     await this.consumer.subscribe({
-      topic: /^awareness-/,
+      topic: this.topicResolver.docTopicPattern,
       fromBeginning: false,
     });
     await this.consumer.subscribe({
-      topic: /^control-/,
+      topic: this.topicResolver.awarenessTopicPattern,
       fromBeginning: false,
     });
+    if (this.topicResolver.controlTopicPattern) {
+      await this.consumer.subscribe({
+        topic: this.topicResolver.controlTopicPattern,
+        fromBeginning: false,
+      });
+    }
     await this.consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         if (!message.value) {

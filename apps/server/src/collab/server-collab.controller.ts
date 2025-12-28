@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Buffer } from 'buffer';
+import { BadRequestException } from '@nestjs/common';
+import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 import { ServerCollabService } from './server-collab.service';
 import { PublishUpdateDto } from './dto/publish-update.dto';
 import { PersistSnapshotDto } from './dto/persist-snapshot.dto';
@@ -44,12 +46,23 @@ export class ServerCollabController {
   })
   @ApiResponse({ status: 201, description: 'Update published successfully.' })
   async publish(@Body() payload: PublishUpdateDto) {
+    if (!payload.version) {
+      throw new BadRequestException('version is required');
+    }
     const binaryContent = Buffer.from(payload.content, 'base64');
-    return this.collab.publishUpdate({
+    const metadata: ProtocolMessageMetadata = {
       roomId: payload.roomId ?? 'default',
       docId: payload.docId,
+      subdocId: payload.subdocId,
+      version: payload.version,
+      senderId: payload.senderId,
+      timestamp: payload.timestamp ?? Date.now(),
+      note: payload.note,
+    };
+    return this.collab.publishUpdate({
+      metadata,
       channel: payload.channel ?? 'doc',
-      content: new Uint8Array(
+      payload: new Uint8Array(
         binaryContent.buffer,
         binaryContent.byteOffset,
         binaryContent.byteLength,

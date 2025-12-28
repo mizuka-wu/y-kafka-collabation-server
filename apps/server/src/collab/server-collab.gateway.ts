@@ -11,9 +11,13 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Buffer } from 'buffer';
-import { decodeKafkaEnvelope } from '@y-kafka-collabation-server/protocol';
-import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
-import { CollabChannel, ServerCollabService } from './server-collab.service';
+import {
+  decodeKafkaEnvelope,
+  encodeKafkaEnvelope,
+  ProtocolMessageMetadata,
+} from '@y-kafka-collabation-server/protocol';
+import { ServerCollabService } from './server-collab.service';
+import { CollabChannel } from './types';
 
 type ProtocolPayload =
   | string
@@ -26,6 +30,7 @@ type ClientProtocolMessage = {
   roomId?: string;
   docId: string;
   channel?: CollabChannel;
+  metadata?: ProtocolMessageMetadata;
   payload: ProtocolPayload;
 };
 
@@ -136,36 +141,52 @@ export class ServerCollabGateway
 
   @SubscribeMessage('protocol-message')
   async handleProtocolMessage(
-    @ConnectedSocket() _client: Socket,
+    @ConnectedSocket() client: Socket,
     @MessageBody() message: GatewayProtocolMessage,
   ) {
-    const docId = message.docId;
-    const roomId = message.roomId ?? 'default';
+    const docId = message.docId ?? message.metadata?.docId;
     const channel = (message.channel as CollabChannel | undefined) ?? 'doc';
-    const payload = message.payload;
     if (!docId) {
       throw new Error('protocol-message missing docId');
     }
-    const buffer = toUint8Array(payload);
+    const buffer = toUint8Array(message.payload);
 
     try {
       const { metadata: envelopeMeta } = decodeKafkaEnvelope(buffer);
       if (envelopeMeta.note === 'sync-request') {
-        await this.respondWithDocumentState(_client, docId);
+        await this.respondWithDocumentState(client, docId);
         return;
       }
+      if (!envelopeMeta.roomId) {
+        envelopeMeta.roomId = message.roomId ?? 'default';
+      }
+      return this.collabService.publishUpdate({
+        metadata: envelopeMeta,
+        channel,
+        payload: buffer,
+      });
     } catch (error) {
-      this.logger.error(
-        `Failed to decode envelope for ${docId}, forwarding raw payload`,
+      this.logger.warn(
+        `Failed to decode envelope for ${docId}, attempt raw metadata fallback`,
         error as Error,
       );
     }
 
-    return this.collabService.publishUpdate({
-      roomId,
+    if (!message.metadata) {
+      throw new Error('protocol-message missing metadata for raw payload');
+    }
+
+    const metadata: ProtocolMessageMetadata = {
+      ...message.metadata,
+      roomId: message.metadata.roomId ?? message.roomId ?? 'default',
       docId,
+      timestamp: message.metadata.timestamp ?? Date.now(),
+    };
+    const envelope = encodeKafkaEnvelope(buffer, metadata);
+    return this.collabService.publishUpdate({
+      metadata,
       channel,
-      content: buffer,
+      payload: envelope,
     });
   }
 
