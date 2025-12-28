@@ -11,7 +11,7 @@ import {
 } from '@y-kafka-collabation-server/protocol';
 import { Buffer } from 'buffer';
 
-export type CollabChannel = 'doc' | 'awareness' | 'control';
+export type CollabChannel = 'doc' | 'awareness' | 'control' | 'cursor';
 
 type KafkaTailPosition = {
   topic: string;
@@ -36,6 +36,7 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly updateListeners: Array<
     (metadata: ProtocolMessageMetadata, payload: Uint8Array) => void
   > = [];
+  private ywasmModule?: Promise<typeof import('ywasm')>;
 
   constructor() {
     const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
@@ -79,6 +80,13 @@ export class ServerCollabService implements OnModuleDestroy {
     this.kafkaConsumerReady = this.startKafkaConsumer();
   }
 
+  private getYwasm() {
+    if (!this.ywasmModule) {
+      this.ywasmModule = import('ywasm');
+    }
+    return this.ywasmModule;
+  }
+
   async getStatus() {
     await Promise.all([this.kafkaReady, this.persistenceReady]);
     if (!this.snapshotRepo) {
@@ -107,6 +115,7 @@ export class ServerCollabService implements OnModuleDestroy {
 
     // 1. Get latest snapshot from DB
     let snapshot: string | null = null;
+    let snapshotVersion: string | null = null;
     if (this.snapshotRepo) {
       const record = await this.snapshotRepo.findOne({
         where: { docId },
@@ -114,35 +123,40 @@ export class ServerCollabService implements OnModuleDestroy {
       });
       if (record) {
         snapshot = record.data;
+        snapshotVersion = record.version;
       }
     }
 
     // 2. Get recent updates from history storage
     let updates: string[] = [];
     if (this.historyRepo) {
-      const since = snapshot
-        ? await this.snapshotRepo?.findOne({
-            where: { docId },
-            order: { createdAt: 'DESC' },
-          })
-        : null;
-      const createdAfter =
-        since?.createdAt ?? new Date(Date.now() - 1000 * 60 * 60 * 24);
       const history = await this.historyRepo.find({
-        where: {
-          docId,
-          createdAt: MoreThan(createdAfter),
-        },
-        order: { createdAt: 'ASC' },
+        where: snapshotVersion
+          ? {
+              docId,
+              version: MoreThan(snapshotVersion),
+            }
+          : { docId },
+        order: { version: 'ASC' },
         take: 200,
       });
       updates = history.map((entry) => entry.payload);
     }
 
+    const kafkaUpdates =
+      this.messages
+        .get(docId)
+        ?.map((buf) => Buffer.from(buf).toString('base64')) ?? [];
+
+    const aggregatedUpdates =
+      (await this.aggregateKafkaUpdates(docId, kafkaUpdates)) ?? kafkaUpdates;
+
     return {
       docId,
       snapshot,
       updates,
+      kafkaUpdates: aggregatedUpdates,
+      kafkaTail: this.kafkaTail.get(docId) ?? null,
     };
   }
 
@@ -246,6 +260,46 @@ export class ServerCollabService implements OnModuleDestroy {
           ? 'control'
           : 'docs';
     return `${prefix}-${roomId}`;
+  }
+
+  private async aggregateKafkaUpdates(
+    docId: string,
+    updates: string[],
+  ): Promise<string[] | undefined> {
+    if (updates.length === 0) {
+      return undefined;
+    }
+    if (updates.length === 1) {
+      return updates;
+    }
+    try {
+      const { YDoc, applyUpdate, encodeStateAsUpdate } = await this.getYwasm();
+      const ydoc = new YDoc();
+      let applied = false;
+      updates.forEach((base64, index) => {
+        try {
+          const buffer = Buffer.from(base64, 'base64');
+          applyUpdate(ydoc, buffer);
+          applied = true;
+        } catch (error) {
+          this.logger.warn(
+            `Failed to apply Kafka update #${index} during yjs aggregation`,
+            error as Error,
+          );
+        }
+      });
+      if (!applied) {
+        return updates;
+      }
+      const merged = encodeStateAsUpdate(ydoc);
+      return [Buffer.from(merged).toString('base64')];
+    } catch (error) {
+      this.logger.warn(
+        'yjs aggregation failed, fallback to raw updates',
+        error,
+      );
+      return updates;
+    }
   }
 
   private async connectKafka() {

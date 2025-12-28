@@ -81,7 +81,13 @@ import {
   undo,
   redo,
 } from 'y-prosemirror';
-import { fetchStatus, persistSnapshot, ServerStatus } from '../lib/api';
+import {
+  fetchStatus,
+  fetchDocumentState,
+  persistSnapshot,
+  DocumentState,
+  ServerStatus,
+} from '../lib/api';
 
 const VITE_COLLAB_SERVER_URL =
   import.meta.env.VITE_COLLAB_SERVER_URL ?? 'http://localhost:3000';
@@ -96,11 +102,13 @@ const awareness = shallowRef<Awareness>();
 const provider = shallowRef<ProtocolProvider | null>(null);
 
 const serverStatus = ref<ServerStatus[]>([]);
+const documentState = ref<DocumentState | null>(null);
 const statusMessage = ref('尚未发送');
 const providerStatus = ref<ProviderStatus>('disconnected');
 const lastProviderSync = ref<string | null>(null);
 const providerLog = ref<string[]>([]);
 let statusInterval: ReturnType<typeof setInterval> | null = null;
+const lastSnapshotVersion = ref<string | null>(null);
 
 const recreateCollabState = (id: string) => {
   ydoc.value = new Y.Doc({ guid: id });
@@ -119,12 +127,32 @@ const pushProviderLog = (message: string) => {
   providerLog.value = [message, ...providerLog.value].slice(0, 10);
 };
 
+const refreshDocumentState = async () => {
+  try {
+    documentState.value = await fetchDocumentState(
+      VITE_COLLAB_SERVER_URL,
+      docId.value,
+    );
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 const handlePersist = async () => {
   if (!ydoc.value) return;
   const snapshot = JSON.stringify(ydoc.value.toJSON());
+  const version =
+    lastSnapshotVersion.value ?? Date.now().toString();
   statusMessage.value = '正在持久化';
-  await persistSnapshot(VITE_COLLAB_SERVER_URL, docId.value, snapshot);
+  await persistSnapshot(
+    VITE_COLLAB_SERVER_URL,
+    docId.value,
+    snapshot,
+    version,
+  );
+  lastSnapshotVersion.value = version;
   statusMessage.value = '快照已保存';
+  await refreshDocumentState();
 };
 
 const handleFetchStatus = async () => {
@@ -138,6 +166,7 @@ const handleFetchStatus = async () => {
 onMounted(() => {
   handleFetchStatus();
   statusInterval = setInterval(handleFetchStatus, 5000);
+  refreshDocumentState();
 });
 
 watchEffect((onCleanup) => {
@@ -227,6 +256,7 @@ watchEffect((onCleanup) => {
   });
 
   provider.value = instance;
+  refreshDocumentState();
 
   onCleanup(() => {
     instance.destroy();
@@ -239,6 +269,7 @@ watchEffect((onCleanup) => {
 const switchDoc = () => {
   if (inputDocId.value && inputDocId.value !== docId.value) {
     docId.value = inputDocId.value;
+    refreshDocumentState();
   }
 };
 

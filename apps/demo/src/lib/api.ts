@@ -4,10 +4,18 @@ export type ServerStatus = {
   latestSnapshot: string | null;
 };
 
+export type KafkaTail = {
+  topic: string;
+  partition: number;
+  offset: string;
+};
+
 export type DocumentState = {
   docId: string;
   snapshot: string | null;
   updates: string[];
+  kafkaUpdates: string[];
+  kafkaTail?: KafkaTail | null;
 };
 
 export const fetchStatus = async (baseUrl: string) => {
@@ -31,13 +39,14 @@ export const publishUpdate = async (
   roomId: string,
   docId: string,
   content: string,
+  channel: 'doc' | 'awareness' | 'control' = 'doc',
 ) => {
   const response = await fetch(`${baseUrl}/collab/publish`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ roomId, docId, content }),
+    body: JSON.stringify({ roomId, docId, content, channel }),
   });
   if (!response.ok) {
     throw new Error('更新推送失败');
@@ -48,12 +57,15 @@ export const persistSnapshot = async (
   baseUrl: string,
   docId: string,
   snapshot: string,
+  version: string,
+  subdocId?: string,
+  timestamp?: number,
 ) => {
   await fetch(`${baseUrl}/collab/persist`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ docId, snapshot }),
+    body: JSON.stringify({ docId, snapshot, version, subdocId, timestamp }),
   });
 };

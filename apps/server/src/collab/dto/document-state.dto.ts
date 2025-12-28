@@ -29,6 +29,13 @@ export class DocumentStateDto {
   updates: string[];
 
   @ApiProperty({
+    description:
+      'Latest Kafka messages (base64 envelopes) used for aggregation',
+    type: [String],
+  })
+  kafkaUpdates: string[];
+
+  @ApiProperty({
     description: 'Latest Kafka tail position used for replay',
     required: false,
     nullable: true,

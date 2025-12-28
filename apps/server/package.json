@@ -24,8 +24,6 @@
     "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
-    "y-protocols": "^1.0.6-3",
-    "yjs": "^13.6.28",
     "kafkajs": "^2.2.4",
     "mysql2": "^3.16.0",
     "nestjs-pino": "^4.5.0",
@@ -34,7 +32,11 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "y-protocols": "^1.0.6-3",
+    "yjs": "^13.6.28",
+    "yrs": "^1.0.8",
+    "ywasm": "^0.25.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
