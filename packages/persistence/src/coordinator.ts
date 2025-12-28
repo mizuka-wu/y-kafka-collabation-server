@@ -19,11 +19,15 @@ export class PersistenceCoordinator {
     if (!snapshot) {
       return null;
     }
+    const rawData = snapshot.data;
+    const bufferData = Buffer.isBuffer(rawData)
+      ? Buffer.from(rawData)
+      : Buffer.from(rawData, 'base64');
     return {
       docId: snapshot.docId,
       subdocId: snapshot.subdocId,
       version: snapshot.version,
-      data: Buffer.from(snapshot.data, 'base64'),
+      data: bufferData,
       storageLocation: snapshot.storageLocation,
     };
   }

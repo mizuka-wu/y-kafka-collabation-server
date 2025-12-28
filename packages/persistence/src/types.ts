@@ -30,8 +30,8 @@ export class DocumentSnapshot {
   })
   updatedAt!: Date;
 
-  @Column({ type: 'text' })
-  data!: string;
+  @Column({ type: 'varbinary', length: 65535 })
+  data!: Buffer;
 
   @Column({ type: 'varchar', length: 256, nullable: true })
   storageLocation?: string;
@@ -68,8 +68,8 @@ export class UpdateHistory {
   @Column({ type: 'text' })
   metadata!: string;
 
-  @Column({ type: 'text' })
-  payload!: string;
+  @Column({ type: 'varbinary', length: 65535 })
+  payload!: Buffer;
 }
 
 export interface PersistenceMetadata {

@@ -7,8 +7,7 @@ import {
 } from './types';
 import { SnowflakeIdGenerator } from './utils/snowflake';
 
-const toBase64 = (buffer: Buffer | Uint8Array): string =>
-  Buffer.from(buffer).toString('base64');
+const toBuffer = (binary: Buffer | Uint8Array): Buffer => Buffer.from(binary);
 
 export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
   private snapshotRepo;
@@ -44,7 +43,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
       subdocId: metadata.subdocId,
       version: version, // Use snowflake
       timestamp: metadata.timestamp ?? Date.now(),
-      data: toBase64(binary),
+      data: toBuffer(binary),
       storageLocation: metadata.storageLocation,
     });
     await this.snapshotRepo.save(snapshot);
@@ -62,7 +61,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
       version: version, // Use snowflake
       timestamp: metadata.timestamp ?? Date.now(),
       metadata: JSON.stringify({ roomId: metadata.roomId }),
-      payload: toBase64(binary),
+      payload: toBuffer(binary),
     };
 
     await this.dataSource.transaction(async (manager) => {
@@ -72,7 +71,7 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
           subdocId: metadata.subdocId,
           version: version,
           timestamp: metadata.timestamp ?? Date.now(),
-          data: toBase64(binary),
+          data: toBuffer(binary),
         });
         await manager.save(snapshot);
       }

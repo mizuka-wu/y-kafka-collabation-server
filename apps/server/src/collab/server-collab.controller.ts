@@ -1,5 +1,13 @@
-import { Body, Controller, Get, Param, Post, Logger } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Logger,
+} from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Buffer } from 'buffer';
 import { BadRequestException } from '@nestjs/common';
 import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
@@ -21,13 +29,21 @@ export class ServerCollabController {
     description:
       'Returns the latest snapshot and recent updates for a document.',
   })
+  @ApiQuery({
+    name: 'subdocId',
+    required: false,
+    description: 'Optional sub document identifier',
+  })
   @ApiResponse({
     status: 200,
     description: 'Document state retrieved successfully.',
     type: DocumentStateDto,
   })
-  async getDocumentState(@Param('docId') docId: string) {
-    return this.collab.getDocumentState(docId);
+  async getDocumentState(
+    @Param('docId') docId: string,
+    @Query('subdocId') subdocId?: string,
+  ) {
+    return this.collab.getDocumentState(docId, subdocId);
   }
 
   @Get('status')

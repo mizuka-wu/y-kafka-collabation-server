@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class KafkaTailDto {
   @ApiProperty({ description: 'Kafka topic name' })
@@ -30,6 +30,11 @@ class DocumentStateDebugDto {
 export class DocumentStateDto {
   @ApiProperty({ description: 'The unique document identifier' })
   docId: string;
+
+  @ApiPropertyOptional({
+    description: 'Sub document identifier if the state is scoped to a subdoc',
+  })
+  subdocId?: string;
 
   @ApiProperty({
     description: 'The latest snapshot of the document (base64 encoded)',
