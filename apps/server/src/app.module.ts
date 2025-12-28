@@ -10,6 +10,7 @@ import { AppController } from './app.controller';
   imports: [
     LoggerModule.forRoot({
       pinoHttp: {
+        level: 'warn',
         transport:
           process.env.NODE_ENV !== 'production'
             ? {
