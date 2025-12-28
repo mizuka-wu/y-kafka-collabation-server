@@ -4,7 +4,7 @@ kafka:
     - localhost:9092
   consumerGroup: collab-server-sync
   topics:
-    doc: docs-{roomId}
+    sync: sync-{roomId}
     awareness: awareness-{roomId}
     control: control-{roomId}
   topicRoomPriority:
