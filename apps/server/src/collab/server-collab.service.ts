@@ -1,10 +1,12 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { Kafka, Producer, Partitioners } from 'kafkajs';
-import { DataSource, Repository } from 'typeorm';
+import { Kafka, Producer, Partitioners, Consumer } from 'kafkajs';
+import { DataSource, Repository, MoreThan } from 'typeorm';
 import {
   DocumentSnapshot,
   SnowflakeIdGenerator,
+  UpdateHistory,
 } from '@y-kafka-collabation-server/persistence';
+import { decodeKafkaEnvelope } from '@y-kafka-collabation-server/protocol';
 import { Buffer } from 'buffer';
 
 @Injectable()
@@ -12,10 +14,13 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly logger = new Logger(ServerCollabService.name);
   private readonly kafka: Kafka;
   private readonly producer: Producer;
+  private readonly consumer: Consumer;
   private readonly messages = new Map<string, Uint8Array[]>();
   private readonly dataSource: DataSource;
   private snapshotRepo?: Repository<DocumentSnapshot>;
+  private historyRepo?: Repository<UpdateHistory>;
   private readonly kafkaReady: Promise<void>;
+  private readonly kafkaConsumerReady: Promise<void>;
   private readonly persistenceReady: Promise<void>;
   private readonly updateListeners: Array<
     (docId: string, payload: Uint8Array) => void
@@ -38,6 +43,10 @@ export class ServerCollabService implements OnModuleDestroy {
       allowAutoTopicCreation: true,
     });
     this.kafkaReady = this.connectKafka();
+    this.consumer = this.kafka.consumer({
+      groupId: process.env.KAFKA_CONSUMER_GROUP ?? 'collab-server-sync',
+      allowAutoTopicCreation: true,
+    });
 
     this.dataSource = new DataSource({
       type: 'mysql',
@@ -48,7 +57,7 @@ export class ServerCollabService implements OnModuleDestroy {
       database: process.env.MYSQL_DATABASE ?? 'collab',
       synchronize: true,
       logging: false,
-      entities: [DocumentSnapshot],
+      entities: [DocumentSnapshot, UpdateHistory],
       poolSize: 10,
       extra: {
         connectionLimit: 10,
@@ -57,6 +66,7 @@ export class ServerCollabService implements OnModuleDestroy {
       },
     });
     this.persistenceReady = this.initializePersistence();
+    this.kafkaConsumerReady = this.startKafkaConsumer();
     // Initialize Snowflake with worker 2 (server)
     this.snowflake = new SnowflakeIdGenerator(2, 1);
   }
@@ -80,7 +90,11 @@ export class ServerCollabService implements OnModuleDestroy {
   }
 
   async getDocumentState(docId: string) {
-    await Promise.all([this.kafkaReady, this.persistenceReady]);
+    await Promise.all([
+      this.kafkaReady,
+      this.kafkaConsumerReady,
+      this.persistenceReady,
+    ]);
 
     // 1. Get latest snapshot from DB
     let snapshot: string | null = null;
@@ -94,11 +108,27 @@ export class ServerCollabService implements OnModuleDestroy {
       }
     }
 
-    // 2. Get recent updates from memory
-    const updates =
-      this.messages
-        .get(docId)
-        ?.map((buf) => Buffer.from(buf).toString('base64')) ?? [];
+    // 2. Get recent updates from history storage
+    let updates: string[] = [];
+    if (this.historyRepo) {
+      const since = snapshot
+        ? await this.snapshotRepo?.findOne({
+            where: { docId },
+            order: { createdAt: 'DESC' },
+          })
+        : null;
+      const createdAfter =
+        since?.createdAt ?? new Date(Date.now() - 1000 * 60 * 60 * 24);
+      const history = await this.historyRepo.find({
+        where: {
+          docId,
+          createdAt: MoreThan(createdAfter),
+        },
+        order: { createdAt: 'ASC' },
+        take: 200,
+      });
+      updates = history.map((entry) => entry.payload);
+    }
 
     return {
       docId,
@@ -114,13 +144,9 @@ export class ServerCollabService implements OnModuleDestroy {
       topic,
       messages: [{ value: Buffer.from(content) }],
     });
-    this.enqueueMessage(docId, content);
     this.logger.log(
       `Published update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${content.byteLength})`,
     );
-    for (const listener of this.updateListeners) {
-      listener(docId, content);
-    }
     return {
       docId,
       roomId,
@@ -167,6 +193,9 @@ export class ServerCollabService implements OnModuleDestroy {
     await this.producer.disconnect().catch((error) => {
       this.logger.warn('Kafka producer disconnect failed', error);
     });
+    await this.consumer.disconnect().catch((error) => {
+      this.logger.warn('Kafka consumer disconnect failed', error);
+    });
     await this.dataSource.destroy().catch((error) => {
       this.logger.warn('TypeORM data source shutdown failed', error);
     });
@@ -192,9 +221,72 @@ export class ServerCollabService implements OnModuleDestroy {
     this.logger.log('Kafka producer connected');
   }
 
+  private async startKafkaConsumer() {
+    await this.persistenceReady;
+    await this.consumer.connect();
+    await this.consumer.subscribe({
+      topic: /^docs-/,
+      fromBeginning: false,
+    });
+    await this.consumer.run({
+      eachMessage: async ({ message }) => {
+        if (!message.value) {
+          return;
+        }
+        try {
+          const payload = new Uint8Array(
+            message.value.buffer,
+            message.value.byteOffset,
+            message.value.byteLength,
+          );
+          const { metadata, payload: yPayload } = decodeKafkaEnvelope(payload);
+          if (!metadata.docId) {
+            return;
+          }
+          this.enqueueMessage(metadata.docId, yPayload);
+          await this.recordHistory(metadata, yPayload);
+          for (const listener of this.updateListeners) {
+            listener(metadata.docId, yPayload);
+          }
+        } catch (error) {
+          this.logger.error(
+            'Kafka consumer failed to process message',
+            error as Error,
+          );
+        }
+      },
+    });
+    this.logger.log('Kafka consumer running');
+  }
+
   private async initializePersistence() {
     await this.dataSource.initialize();
     this.snapshotRepo = this.dataSource.getRepository(DocumentSnapshot);
+    this.historyRepo = this.dataSource.getRepository(UpdateHistory);
     this.logger.log('TypeORM persistence ready');
+  }
+
+  private async recordHistory(
+    metadata: {
+      docId?: string;
+      subdocId?: string;
+      roomId?: string;
+      timestamp?: number;
+      version?: string;
+    },
+    payload: Uint8Array,
+  ) {
+    if (!this.historyRepo || !metadata.docId) {
+      return;
+    }
+    const record = this.historyRepo.create({
+      docId: metadata.docId,
+      subdocId: metadata.subdocId,
+      version: metadata.version ?? String(this.snowflake.nextId()),
+      timestamp: metadata.timestamp ?? Date.now(),
+      metadata: JSON.stringify({ roomId: metadata.roomId }),
+      payload: Buffer.from(payload).toString('base64'),
+    });
+    await this.historyRepo.save(record);
   }
 }
