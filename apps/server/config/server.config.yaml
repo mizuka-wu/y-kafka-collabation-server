@@ -1,0 +1,20 @@
+kafka:
+  clientId: collab-server
+  brokers:
+    - localhost:9092
+  consumerGroup: collab-server-sync
+  topics:
+    doc: docs-{roomId}
+    awareness: awareness-{roomId}
+    control: control-{roomId}
+  topicRoomPriority:
+    - roomId
+    - docId
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ''
+  database: collab
+  synchronize: true
+  poolSize: 10

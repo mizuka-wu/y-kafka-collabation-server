@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer, Partitioners, Consumer } from 'kafkajs';
 import { DataSource, Repository, MoreThan } from 'typeorm';
 import * as Y from 'ywasm';
@@ -14,7 +15,8 @@ import {
 import { Buffer } from 'buffer';
 
 import { CollabChannel } from './types';
-import { EnvTopicResolver, TopicResolver } from '../kafka/topic-resolver';
+import { TemplateTopicResolver, TopicResolver } from '../kafka/topic-resolver';
+import { AppConfigSnapshot } from '../config/configuration';
 
 type KafkaTailPosition = {
   topic: string;
@@ -42,16 +44,19 @@ export class ServerCollabService implements OnModuleDestroy {
   > = [];
   private ywasmModule?: Promise<typeof import('ywasm')>;
 
-  constructor() {
-    const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:9092')
-      .split(',')
-      .map((item) => item.trim());
+  constructor(
+    private readonly configService: ConfigService<AppConfigSnapshot>,
+  ) {
+    const kafkaConfig = this.configService.get('kafka', { infer: true });
+    const mysqlConfig = this.configService.get('mysql', { infer: true });
+    if (!kafkaConfig || !mysqlConfig) {
+      throw new Error('Application configuration is missing.');
+    }
+
     this.kafka = new Kafka({
-      brokers,
-      retry: {
-        initialRetryTime: 100,
-        retries: 8,
-      },
+      clientId: kafkaConfig.clientId,
+      brokers: kafkaConfig.brokers,
+      retry: kafkaConfig.retry,
     });
     this.producer = this.kafka.producer({
       createPartitioner: Partitioners.LegacyPartitioner,
@@ -59,24 +64,27 @@ export class ServerCollabService implements OnModuleDestroy {
     });
     this.kafkaReady = this.connectKafka();
     this.consumer = this.kafka.consumer({
-      groupId: process.env.KAFKA_CONSUMER_GROUP ?? 'collab-server-sync',
+      groupId: kafkaConfig.consumerGroup,
       allowAutoTopicCreation: true,
     });
-    this.topicResolver = new EnvTopicResolver();
+    this.topicResolver = new TemplateTopicResolver(
+      kafkaConfig.topics,
+      kafkaConfig.topicRoomPriority,
+    );
 
     this.dataSource = new DataSource({
       type: 'mysql',
-      host: process.env.MYSQL_HOST ?? '127.0.0.1',
-      port: Number(process.env.MYSQL_PORT ?? 3306),
-      username: process.env.MYSQL_USER ?? 'root',
-      password: process.env.MYSQL_PASSWORD ?? '',
-      database: process.env.MYSQL_DATABASE ?? 'collab',
-      synchronize: true,
+      host: mysqlConfig.host,
+      port: mysqlConfig.port,
+      username: mysqlConfig.user,
+      password: mysqlConfig.password,
+      database: mysqlConfig.database,
+      synchronize: mysqlConfig.synchronize,
       logging: false,
       entities: [DocumentSnapshot, UpdateHistory],
-      poolSize: 10,
+      poolSize: mysqlConfig.poolSize,
       extra: {
-        connectionLimit: 10,
+        connectionLimit: mysqlConfig.poolSize,
         waitForConnections: true,
         queueLimit: 0,
       },

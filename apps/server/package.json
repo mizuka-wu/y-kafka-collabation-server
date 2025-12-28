@@ -16,11 +16,13 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/platform-socket.io": "^11.1.10",
     "@nestjs/swagger": "^11.2.3",
     "@nestjs/websockets": "^11.0.0",
+    "@types/yaml": "^1.9.7",
     "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
@@ -34,6 +36,7 @@
     "socket.io": "^4.8.3",
     "typeorm": "^0.3.28",
     "y-protocols": "^1.0.6-3",
+    "yaml": "^2.8.2",
     "yjs": "^13.6.28",
     "yrs": "^1.0.8",
     "ywasm": "^0.25.0"

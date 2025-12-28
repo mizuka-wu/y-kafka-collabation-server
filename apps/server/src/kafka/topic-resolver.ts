@@ -1,4 +1,5 @@
 import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
+import { RoomPriority, TopicTemplates } from '../config/configuration';
 
 export interface TopicResolver {
   readonly docTopicPattern: RegExp;
@@ -9,27 +10,22 @@ export interface TopicResolver {
   resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
 }
 
-type EnvTemplates = {
-  doc: string;
-  awareness: string;
-  control?: string;
-};
-
-const DEFAULT_TEMPLATES: EnvTemplates = {
-  doc: 'docs-{roomId}',
-  awareness: 'awareness-{roomId}',
-  control: 'control-{roomId}',
-};
-
 const PLACEHOLDER_REGEX = /\{(roomId|docId|tenantId)\}/g;
 const ESCAPE_REGEX = /[-/\\^$*+?.()|[\]{}]/g;
 
-const interpolate = (
+const templateToRegex = (template: string): RegExp => {
+  const escaped = template.replace(ESCAPE_REGEX, '\\$&');
+  const pattern = escaped.replace(PLACEHOLDER_REGEX, '.+');
+  return new RegExp(`^${pattern}$`);
+};
+
+const interpolateTemplate = (
   template: string,
   metadata: ProtocolMessageMetadata,
+  roomSelector: () => string,
 ): string => {
   const replacements: Record<string, string | undefined> = {
-    roomId: metadata.roomId ?? metadata.docId ?? 'default',
+    roomId: roomSelector(),
     docId: metadata.docId ?? metadata.roomId ?? 'unknown-doc',
     tenantId: metadata.note,
   };
@@ -39,27 +35,15 @@ const interpolate = (
   });
 };
 
-const templateToRegex = (template: string): RegExp => {
-  const escaped = template.replace(ESCAPE_REGEX, '\\$&');
-  const pattern = escaped.replace(PLACEHOLDER_REGEX, '.+');
-  return new RegExp(`^${pattern}$`);
-};
-
-export class EnvTopicResolver implements TopicResolver {
-  private readonly templates: EnvTemplates;
-
+export class TemplateTopicResolver implements TopicResolver {
   public readonly docTopicPattern: RegExp;
   public readonly awarenessTopicPattern: RegExp;
   public readonly controlTopicPattern?: RegExp;
 
-  constructor(env: NodeJS.ProcessEnv = process.env) {
-    this.templates = {
-      doc: env.KAFKA_DOC_TOPIC_TEMPLATE ?? DEFAULT_TEMPLATES.doc,
-      awareness:
-        env.KAFKA_AWARENESS_TOPIC_TEMPLATE ?? DEFAULT_TEMPLATES.awareness,
-      control: env.KAFKA_CONTROL_TOPIC_TEMPLATE ?? DEFAULT_TEMPLATES.control,
-    };
-
+  constructor(
+    private readonly templates: TopicTemplates,
+    private readonly roomPriority: RoomPriority,
+  ) {
     this.docTopicPattern = templateToRegex(this.templates.doc);
     this.awarenessTopicPattern = templateToRegex(this.templates.awareness);
     if (this.templates.control) {
@@ -68,15 +52,31 @@ export class EnvTopicResolver implements TopicResolver {
   }
 
   resolveDocTopic(metadata: ProtocolMessageMetadata): string {
-    return interpolate(this.templates.doc, metadata);
+    return interpolateTemplate(this.templates.doc, metadata, () =>
+      this.pickRoom(metadata),
+    );
   }
 
   resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string {
-    return interpolate(this.templates.awareness, metadata);
+    return interpolateTemplate(this.templates.awareness, metadata, () =>
+      this.pickRoom(metadata),
+    );
   }
 
   resolveControlTopic(metadata: ProtocolMessageMetadata): string {
-    const template = this.templates.control ?? DEFAULT_TEMPLATES.control!;
-    return interpolate(template, metadata);
+    const template = this.templates.control ?? 'control-{roomId}';
+    return interpolateTemplate(template, metadata, () =>
+      this.pickRoom(metadata),
+    );
+  }
+
+  private pickRoom(metadata: ProtocolMessageMetadata): string {
+    for (const field of this.roomPriority) {
+      const value = metadata[field];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return metadata.roomId ?? metadata.docId ?? 'default';
   }
 }
