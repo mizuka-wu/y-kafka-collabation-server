@@ -6,7 +6,10 @@ import {
   SnowflakeIdGenerator,
   UpdateHistory,
 } from '@y-kafka-collabation-server/persistence';
-import { decodeKafkaEnvelope } from '@y-kafka-collabation-server/protocol';
+import {
+  decodeKafkaEnvelope,
+  ProtocolMessageMetadata,
+} from '@y-kafka-collabation-server/protocol';
 import { Buffer } from 'buffer';
 
 @Injectable()
@@ -23,7 +26,7 @@ export class ServerCollabService implements OnModuleDestroy {
   private readonly kafkaConsumerReady: Promise<void>;
   private readonly persistenceReady: Promise<void>;
   private readonly updateListeners: Array<
-    (docId: string, payload: Uint8Array) => void
+    (metadata: ProtocolMessageMetadata, payload: Uint8Array) => void
   > = [];
   private readonly snowflake: SnowflakeIdGenerator;
 
@@ -185,7 +188,7 @@ export class ServerCollabService implements OnModuleDestroy {
   }
 
   registerUpdateListener(
-    listener: (docId: string, payload: Uint8Array) => void,
+    listener: (metadata: ProtocolMessageMetadata, payload: Uint8Array) => void,
   ) {
     this.updateListeners.push(listener);
   }
@@ -244,7 +247,7 @@ export class ServerCollabService implements OnModuleDestroy {
           this.enqueueMessage(metadata.docId, envelope);
           await this.recordHistory(metadata, envelope);
           for (const listener of this.updateListeners) {
-            listener(metadata.docId, envelope);
+            listener(metadata, envelope);
           }
         } catch (error) {
           this.logger.error(

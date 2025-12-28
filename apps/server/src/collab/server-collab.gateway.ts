@@ -84,14 +84,18 @@ export class ServerCollabGateway
   constructor(private readonly collabService: ServerCollabService) {}
 
   afterInit() {
-    this.collabService.registerUpdateListener((docId, payload) => {
+    this.collabService.registerUpdateListener((metadata, payload) => {
+      const docId = metadata.docId;
+      if (!docId) {
+        return;
+      }
       const sockets = this.rooms.get(docId);
       if (!sockets) {
         return;
       }
       for (const socket of sockets) {
         socket.emit('protocol-message', {
-          docId,
+          metadata,
           payload,
         });
       }

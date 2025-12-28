@@ -182,3 +182,16 @@ rys 聚合在此处承担“批量处理”角色：无论是从 Kafka 还是 HT
 * [lib0 encoding](https://github.com/yjs/lib0)：Kafka envelope 的 encode/decode 依赖其 `encoding`/`decoding` 工具。
 * [Kafka consumer group design](https://kafka.apache.org/documentation/#consumerconfigs_group.instance.id)：指导 partition 分配与多实例扩展的实践。
 * [rys 聚合库](https://github.com/equalsraf/rys)：用于 HTTP 降级、初次同步等场景的批量聚合运算。
+
+## 8. 开发计划（按重点与难易拆分）
+
+|级别|难度|目标|说明 / 交付物|
+|---|---|---|---|
+|**P0：核心对齐**|困难|将 Nest `ServerCollabGateway` 替换为 `packages/transport` 的 RoomRegistry + Kafka handler，真正实现“Socket.IO ⇄ Kafka ⇄ Socket.IO”链路|需要把当前 `Map<docId, sockets>` 改为 `RoomRegistry`，强制客户端 metadata（room/doc/subdoc/sender/version），并依赖 `protocolCodec` 进行 encode/decode；完成后 server 仅作为 transport 实例运行。|
+||中等|在 gateway/HTTP 接口中强制 metadata 校验与回传，广播给客户端时包含 `metadata`，以便 senderId/version 去重|Update `ServerCollabService` listener & HTTP 回放逻辑，确保 `protocol-message` payload 附带 Kafka metadata（room/doc/subdoc/version/sender/timestamp）。|
+|**P1：可靠路由与持久化**|中等|拆分 doc/awareness/control topic，接入 `topicResolver`，默认 pattern `yjs-doc-{room}`/`yjs-awareness-{room}`|`publishUpdate` 需根据 channel/metadata 选择 topic，consumer 端按 pattern 订阅并保留 metadata。|
+||中等|Persistence/history 使用 metadata.version，而非本地 Snowflake，补齐“snapshot → history sinceVersion → Kafka offset”链路|更新 `recordHistory` 与 snapshot 逻辑，确保 version 与 metadata 同步；新增 Kafka offset 聚合步骤（可先存最近 offset 缓存）。|
+|**P2：降级与体验**|简单|HTTP 请求路径（`/collab/doc`, `/collab/publish`）补上 Kafka offset 拉取 + rys 聚合示例，确保文档与实现一致|在 controller 中调用新聚合服务，demo 里提供“阅读态拉取 + 降级写”流程文档。|
+||简单|在 README/docs 中补充调试指引（如何验证 metadata、topic、RoomRegistry 状态）|输出 checklist + 日志示例，降低排障门槛。|
+
+> 推进建议：先完成 **P0/P1**，因为 transport & metadata 才能支撑其余能力；P2 可在主链路稳定后补齐。
