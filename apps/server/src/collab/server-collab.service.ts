@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Kafka, Producer, Partitioners, Consumer } from 'kafkajs';
 import { DataSource, Repository, MoreThan } from 'typeorm';
+import * as Y from 'ywasm';
 import {
   DocumentSnapshot,
   UpdateHistory,
@@ -78,13 +79,6 @@ export class ServerCollabService implements OnModuleDestroy {
     });
     this.persistenceReady = this.initializePersistence();
     this.kafkaConsumerReady = this.startKafkaConsumer();
-  }
-
-  private getYwasm() {
-    if (!this.ywasmModule) {
-      this.ywasmModule = import('ywasm');
-    }
-    return this.ywasmModule;
   }
 
   async getStatus() {
@@ -273,13 +267,13 @@ export class ServerCollabService implements OnModuleDestroy {
       return updates;
     }
     try {
-      const { YDoc, applyUpdate, encodeStateAsUpdate } = await this.getYwasm();
-      const ydoc = new YDoc();
+      const { YDoc, applyUpdate, encodeStateAsUpdate } = Y;
+      const ydoc = new YDoc(undefined);
       let applied = false;
       updates.forEach((base64, index) => {
         try {
           const buffer = Buffer.from(base64, 'base64');
-          applyUpdate(ydoc, buffer);
+          applyUpdate(ydoc, buffer, undefined);
           applied = true;
         } catch (error) {
           this.logger.warn(
