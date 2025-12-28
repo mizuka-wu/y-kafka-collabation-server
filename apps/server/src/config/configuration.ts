@@ -9,7 +9,7 @@ const DEFAULT_CONFIG_PATH = join(
 );
 
 export type TopicTemplates = {
-  doc: string;
+  sync: string;
   awareness: string;
   control?: string;
 };
@@ -51,7 +51,7 @@ const defaultConfig: AppConfig = {
     brokers: ['localhost:9092'],
     consumerGroup: 'collab-server-sync',
     topics: {
-      doc: 'docs-{roomId}',
+      sync: 'sync-{roomId}',
       awareness: 'awareness-{roomId}',
       control: 'control-{roomId}',
     },

@@ -36,10 +36,10 @@ export interface KafkaProducer {
 }
 
 export interface TopicResolver {
-  resolveDocTopic(roomId: string): string;
+  resolveSyncTopic(roomId: string): string;
   resolveAwarenessTopic(roomId: string): string;
   resolveControlTopic?(roomId: string): string;
-  docTopicPattern?: string;
+  syncTopicPattern?: string;
   awarenessTopicPattern?: string;
 }
 

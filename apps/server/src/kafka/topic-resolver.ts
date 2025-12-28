@@ -1,11 +1,17 @@
 import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 import { RoomPriority, TopicTemplates } from '../config/configuration';
 
+/**
+ * TopicResolver 定义了协作服务在 Kafka 中使用的三类通道：
+ * - syncTopic: 对应 yjs sync/update（文档内容）流
+ * - awarenessTopic: 对应 yjs awareness（presence）流
+ * - controlTopic: 预留给控制/管理指令（如强制快照、权限广播等），当前可选
+ */
 export interface TopicResolver {
-  readonly docTopicPattern: RegExp;
+  readonly syncTopicPattern: RegExp;
   readonly awarenessTopicPattern: RegExp;
   readonly controlTopicPattern?: RegExp;
-  resolveDocTopic(metadata: ProtocolMessageMetadata): string;
+  resolveSyncTopic(metadata: ProtocolMessageMetadata): string;
   resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string;
   resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
 }
@@ -36,7 +42,7 @@ const interpolateTemplate = (
 };
 
 export class TemplateTopicResolver implements TopicResolver {
-  public readonly docTopicPattern: RegExp;
+  public readonly syncTopicPattern: RegExp;
   public readonly awarenessTopicPattern: RegExp;
   public readonly controlTopicPattern?: RegExp;
 
@@ -44,15 +50,15 @@ export class TemplateTopicResolver implements TopicResolver {
     private readonly templates: TopicTemplates,
     private readonly roomPriority: RoomPriority,
   ) {
-    this.docTopicPattern = templateToRegex(this.templates.doc);
+    this.syncTopicPattern = templateToRegex(this.templates.sync);
     this.awarenessTopicPattern = templateToRegex(this.templates.awareness);
     if (this.templates.control) {
       this.controlTopicPattern = templateToRegex(this.templates.control);
     }
   }
 
-  resolveDocTopic(metadata: ProtocolMessageMetadata): string {
-    return interpolateTemplate(this.templates.doc, metadata, () =>
+  resolveSyncTopic(metadata: ProtocolMessageMetadata): string {
+    return interpolateTemplate(this.templates.sync, metadata, () =>
       this.pickRoom(metadata),
     );
   }

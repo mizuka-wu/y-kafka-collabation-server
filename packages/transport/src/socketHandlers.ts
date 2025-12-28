@@ -28,7 +28,7 @@ const resolveTopic = (
   if (channel === 'control' && resolver.resolveControlTopic) {
     return resolver.resolveControlTopic(roomId);
   }
-  return resolver.resolveDocTopic(roomId);
+  return resolver.resolveSyncTopic(roomId);
 };
 
 export const createBusSocketHandlers = (

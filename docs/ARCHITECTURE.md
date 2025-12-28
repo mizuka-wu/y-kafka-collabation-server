@@ -88,7 +88,7 @@ sequenceDiagram
   * `protocol-message` 事件若收到裸 Yjs update，需要结合客户端上传的 metadata 封装后再写 Kafka；能正常解析 envelope 时复用其中 metadata。
   * Gateway 向 Kafka 写入前始终通过 `encodeKafkaEnvelope`，避免 consumer decode 失败。
 * [ ] **Kafka 订阅 & topic resolver 抽象**
-  * 在 server 层引入 `TopicResolver`，允许根据 `roomId`/`tenantId` 自定义 topic pattern；`ServerCollabService.topicFor` 与 consumer `subscribe` 均依赖该 resolver。
+  * 在 server 层引入 `TopicResolver`，允许根据 `roomId`/`tenantId` 自定义 topic pattern；`ServerCollabService` 与 consumer 订阅均依赖该 resolver。`docTopic` 对应 yjs sync/update 流，`awarenessTopic` 对应 presence，`controlTopic` 预留用于控制指令（如强制快照/权限广播），可按需开启。
   * Consumer 缓存消息时以 `metadata.docId/subdocId` 作为 key，兼容同一 doc 分布在多个 topic 的场景。
 * [ ] **`GET /collab/doc/:docId` 输出对齐 README**
   * 响应字段限定为 `{ docId, snapshot, updates }`（updates 已合并 persistence history + Kafka 增量）；若需调试字段，可增加 `_debug` 子对象并在文档中说明。

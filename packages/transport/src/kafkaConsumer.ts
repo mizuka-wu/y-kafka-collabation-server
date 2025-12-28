@@ -4,7 +4,7 @@ import { StartKafkaConsumerDeps } from './types';
 const toUint8Array = (data: Uint8Array | Buffer): Uint8Array =>
   data instanceof Uint8Array ? data : new Uint8Array(data);
 
-const defaultDocTopic = 'yjs-doc-*';
+const defaultSyncTopic = 'yjs-sync-*';
 const defaultAwarenessTopic = 'yjs-awareness-*';
 
 export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
@@ -16,11 +16,11 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
     onMessageEvent = 'protocol-message',
   } = deps;
 
-  const docTopicPattern = topicResolver.docTopicPattern ?? defaultDocTopic;
+  const syncTopicPattern = topicResolver.syncTopicPattern ?? defaultSyncTopic;
   const awarenessTopicPattern =
     topicResolver.awarenessTopicPattern ?? defaultAwarenessTopic;
 
-  await kafkaConsumer.subscribe(docTopicPattern);
+  await kafkaConsumer.subscribe(syncTopicPattern);
   await kafkaConsumer.subscribe(awarenessTopicPattern);
 
   await kafkaConsumer.run({

@@ -274,7 +274,7 @@ export class ServerCollabService implements OnModuleDestroy {
     if (channel === 'control') {
       return this.topicResolver.resolveControlTopic(metadata);
     }
-    return this.topicResolver.resolveDocTopic(metadata);
+    return this.topicResolver.resolveSyncTopic(metadata);
   }
 
   private async aggregateKafkaUpdates(
@@ -326,7 +326,7 @@ export class ServerCollabService implements OnModuleDestroy {
     await this.persistenceReady;
     await this.consumer.connect();
     await this.consumer.subscribe({
-      topic: this.topicResolver.docTopicPattern,
+      topic: this.topicResolver.syncTopicPattern,
       fromBeginning: false,
     });
     await this.consumer.subscribe({
