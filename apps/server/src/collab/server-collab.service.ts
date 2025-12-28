@@ -299,6 +299,43 @@ export class ServerCollabService implements OnModuleDestroy {
     return this.topicResolver.resolveSyncTopic(metadata);
   }
 
+  private bufferToBase64(
+    input?: Buffer | Uint8Array | string | null,
+  ): string | null {
+    if (!input) {
+      return null;
+    }
+    if (typeof input === 'string') {
+      return input;
+    }
+    if (Buffer.isBuffer(input)) {
+      return input.toString('base64');
+    }
+    return Buffer.from(input).toString('base64');
+  }
+
+  private snapshotInputToBuffer(snapshot: string): Buffer {
+    if (!snapshot) {
+      return Buffer.alloc(0);
+    }
+    const normalized = snapshot.trim();
+    const isLikelyBase64 =
+      normalized.length > 0 &&
+      normalized.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(normalized);
+    if (isLikelyBase64) {
+      try {
+        return Buffer.from(normalized, 'base64');
+      } catch (error) {
+        this.logger.warn(
+          'Snapshot content is not valid base64, fallback to utf8 encoding',
+          error as Error,
+        );
+      }
+    }
+    return Buffer.from(snapshot, 'utf8');
+  }
+
   private async aggregateKafkaUpdates(
     docId: string,
     updates: string[],
