@@ -10,16 +10,21 @@ import { Awareness } from '@y/protocols/awareness';
 import {
   ProtocolProvider,
   ProviderStatus,
-  MultiplexedSocketManager,
-  createVirtualWebSocketFactory,
 } from '@y-kafka-collabation-server/provider';
-import { EditorState, Plugin } from 'prosemirror-state';
+import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
 import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror';
+import {
+  ySyncPlugin,
+  yCursorPlugin,
+  yUndoPlugin,
+  initProseMirrorDoc,
+  undo,
+  redo,
+} from 'y-prosemirror';
 import { fetchStatus, persistSnapshot, ServerStatus } from '../lib/api';
 
 const VITE_COLLAB_SERVER_URL =
@@ -29,6 +34,7 @@ export const ProsemirrorDemo = () => {
   const [docId, setDocId] = useState('demo-doc');
   const [inputDocId, setInputDocId] = useState(docId);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
 
   // Re-create Y.Doc when docId changes to ensure clean state
   const ydoc = useMemo(() => new Y.Doc({ guid: docId }), [docId]);
@@ -41,31 +47,6 @@ export const ProsemirrorDemo = () => {
     useState<ProviderStatus>('disconnected');
   const [lastProviderSync, setLastProviderSync] = useState<string | null>(null);
   const [providerLog, setProviderLog] = useState<string[]>([]);
-
-  const socketManager = useMemo(
-    () =>
-      new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL, {
-        autoConnect: false,
-      }),
-    [],
-  );
-
-  useEffect(() => {
-    // Handle React Strict Mode double-invocation
-    const manager = socketManager as any;
-    if (manager._disconnectTimeout) {
-      clearTimeout(manager._disconnectTimeout);
-      manager._disconnectTimeout = undefined;
-    }
-
-    socketManager.connect();
-
-    return () => {
-      manager._disconnectTimeout = setTimeout(() => {
-        socketManager.disconnect();
-      }, 100);
-    };
-  }, [socketManager]);
 
   const handlePersist = useCallback(async () => {
     const snapshot = JSON.stringify(ydoc.toJSON());
@@ -90,30 +71,44 @@ export const ProsemirrorDemo = () => {
     return () => clearInterval(interval);
   }, [handleFetchStatus]);
 
+  const yXmlFragment = useMemo(
+    () => ydoc.getXmlFragment('prosemirror'),
+    [ydoc],
+  );
+
   useEffect(() => {
     if (!editorRef.current) return;
 
-    // Cleanup previous editor if any (though usually re-mount handles this)
     editorRef.current.innerHTML = '';
+    const { doc: initialDoc, mapping } = initProseMirrorDoc(
+      yXmlFragment as any,
+      basicSchema,
+    );
 
-    const yXmlFragment = ydoc.getXmlFragment('prosemirror');
     const state = EditorState.create({
       schema: basicSchema,
+      doc: initialDoc,
       plugins: [
-        ySyncPlugin(yXmlFragment as any),
+        ySyncPlugin(yXmlFragment as any, { mapping }),
         yCursorPlugin(awareness as any),
         yUndoPlugin(),
         history(),
+        keymap({
+          'Mod-z': undo,
+          'Mod-y': redo,
+          'Mod-Shift-z': redo,
+        }),
         keymap(baseKeymap),
-      ] as Plugin[],
+      ],
     });
-    const view = new EditorView(editorRef.current, {
-      state,
-    });
+
+    const view = new EditorView(editorRef.current, { state });
+    editorViewRef.current = view;
     return () => {
       view.destroy();
+      editorViewRef.current = null;
     };
-  }, [awareness, ydoc]);
+  }, [awareness, yXmlFragment]);
 
   const pushProviderLog = useCallback((message: string) => {
     setProviderLog((prev) => {
@@ -129,10 +124,9 @@ export const ProsemirrorDemo = () => {
     setProviderStatus('disconnected');
 
     const provider = new ProtocolProvider(ydoc, {
-      url: `virtual://${docId}`,
+      url: VITE_COLLAB_SERVER_URL,
       docId: docId,
       roomId: 'collab-doc', // Use 'collab-doc' as the room type/namespace
-      WebSocketImpl: createVirtualWebSocketFactory(socketManager),
       awareness,
       metadataCustomizer: (metadata) => ({
         ...metadata,
@@ -162,7 +156,7 @@ export const ProsemirrorDemo = () => {
     return () => {
       provider.destroy();
     };
-  }, [ydoc, docId, awareness, pushProviderLog, socketManager]);
+  }, [ydoc, docId, awareness, pushProviderLog]);
 
   const switchDoc = (e: React.FormEvent) => {
     e.preventDefault();

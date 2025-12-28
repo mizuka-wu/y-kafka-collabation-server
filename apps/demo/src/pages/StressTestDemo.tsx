@@ -3,8 +3,6 @@ import * as Y from '@y/y';
 import {
   ProtocolProvider,
   ProviderStatus,
-  MultiplexedSocketManager,
-  createVirtualWebSocketFactory,
 } from '@y-kafka-collabation-server/provider';
 
 const VITE_COLLAB_SERVER_URL =
@@ -38,21 +36,14 @@ export const StressTestDemo = () => {
     );
 
     const newClients: ProtocolProvider[] = [];
-    const managers: MultiplexedSocketManager[] = [];
 
     for (let i = 0; i < clientCount; i++) {
       const ydoc = new Y.Doc();
-      // Create a dedicated manager for each client to simulate distinct connections
-      const manager = new MultiplexedSocketManager(VITE_COLLAB_SERVER_URL, {
-        autoConnect: true,
-      });
-      managers.push(manager);
 
       const provider = new ProtocolProvider(ydoc, {
-        url: `virtual://${docId}`,
-        docId: docId,
+        url: VITE_COLLAB_SERVER_URL,
+        docId,
         roomId: 'stress',
-        WebSocketImpl: createVirtualWebSocketFactory(manager),
         autoConnect: true,
       });
 
@@ -74,9 +65,6 @@ export const StressTestDemo = () => {
     }
 
     clientsRef.current = newClients;
-    // Attach managers to clientsRef for cleanup
-    (clientsRef.current as any).managers = managers;
-
     // Simulate activity
     intervalRef.current = setInterval(() => {
       newClients.forEach((provider, index) => {
@@ -100,11 +88,6 @@ export const StressTestDemo = () => {
       clearInterval(intervalRef.current);
     }
     clientsRef.current.forEach((p) => p.destroy());
-    const managers = (clientsRef.current as any)
-      .managers as MultiplexedSocketManager[];
-    if (managers) {
-      managers.forEach((m) => m.disconnect());
-    }
     clientsRef.current = [];
   }, []);
 

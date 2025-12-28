@@ -1,5 +1,7 @@
 import * as Y from '@y/y';
 import * as awarenessProtocol from '@y/protocols/awareness';
+import { io, Socket, SocketOptions, ManagerOptions } from 'socket.io-client';
+import { Buffer } from 'buffer';
 import {
   ProtocolCodecContext,
   ProtocolMessageMetadata,
@@ -11,16 +13,35 @@ import {
   encodeAwareness,
   decodeMessage,
 } from '@y-kafka-collabation-server/protocol';
-export {
-  MultiplexedSocketManager,
-  createVirtualWebSocketFactory,
-  VirtualWebSocket,
-} from './socket-io-multiplexer';
+
+const toBase64 = (buf: Uint8Array): string =>
+  Buffer.from(buf).toString('base64');
+
+const fromBase64 = (value: string): Uint8Array => Buffer.from(value, 'base64');
+
+type ProtocolSocketMessage = {
+  docId: string;
+  payload: string;
+};
+
+type ClientProtocolMessage = {
+  docId: string;
+  roomId: string;
+  payload: string;
+};
 
 type AwarenessChangePayload = {
   readonly added: number[];
   readonly updated: number[];
   readonly removed: number[];
+};
+
+type SocketListeners = {
+  connect: () => void;
+  disconnect: (reason: Socket.DisconnectReason) => void;
+  connectError: (error: Error) => void;
+  protocolMessage: (message: ProtocolSocketMessage) => void;
+  joined: (payload: { docId: string }) => void;
 };
 
 export type ProviderStatus =
@@ -47,7 +68,7 @@ type EventMap = {
 
 export interface ProtocolProviderOptions {
   /**
-   * WebSocket 地址，协议端点必须返回 `Kafka envelope + metadata` 的二进制帧。
+   * Socket.io 服务端地址，需支持 `protocol-message` / `join` 事件。
    */
   url: string;
   /**
@@ -83,9 +104,13 @@ export interface ProtocolProviderOptions {
    */
   maxReconnectAttempts?: number;
   /**
-   * 用于替换浏览器内置 WebSocket（例如 Node.js polyfill）。
+   * 复用外部创建的 Socket.io 连接。如果不提供则由 provider 自行创建。
    */
-  WebSocketImpl?: typeof WebSocket;
+  socket?: Socket;
+  /**
+   * 当 provider 负责创建 socket 时，可通过此参数覆写 socket.io 的连接配置。
+   */
+  socketOptions?: Partial<ManagerOptions & SocketOptions>;
   /**
    * 允许在 metadata 生成后做额外处理（例如加上 version/trace）。
    */
@@ -104,8 +129,6 @@ type PendingMessage = {
   metadataOverrides?: Partial<ProtocolMessageMetadata>;
 };
 
-const textEncoder = new TextEncoder();
-
 export class ProtocolProvider implements ProtocolCodecContext {
   public readonly doc: Y.Doc;
   public readonly awareness: awarenessProtocol.Awareness;
@@ -114,16 +137,16 @@ export class ProtocolProvider implements ProtocolCodecContext {
 
   private readonly options: ProtocolProviderOptions;
   private readonly metadataCustomizer?: ProtocolProviderOptions['metadataCustomizer'];
-  private readonly WebSocketImpl?: typeof WebSocket;
-  private ws?: WebSocket;
+  private socket?: Socket;
+  private socketAttached = false;
+  private isExternalSocket = false;
+  private joinedRoom = false;
+  private socketListeners?: SocketListeners;
   private readonly listeners = new Map<
     ProtocolProviderEvent,
     Set<(...args: unknown[]) => void>
   >();
   private pendingMessages: PendingMessage[] = [];
-  private reconnectAttempts = 0;
-  private reconnectTimer?: ReturnType<typeof setTimeout>;
-  private manualDisconnect = false;
   private _status: ProviderStatus = 'disconnected';
   private readonly awarenessListener: (changes: AwarenessChangePayload) => void;
   private readonly docUpdateListener: (
@@ -143,16 +166,6 @@ export class ProtocolProvider implements ProtocolCodecContext {
     this.metadataCustomizer = this.options.metadataCustomizer;
     this.awareness =
       this.options.awareness ?? new awarenessProtocol.Awareness(this.doc);
-
-    this.WebSocketImpl =
-      this.options.WebSocketImpl ??
-      (typeof WebSocket !== 'undefined' ? WebSocket : undefined);
-
-    if (!this.WebSocketImpl) {
-      throw new Error(
-        'WebSocket 未找到，请传入 Polyfill 作为 ProtocolProviderOptions.WebSocketImpl',
-      );
-    }
 
     this.awarenessListener = this.onAwarenessChange.bind(this);
     this.docUpdateListener = this.onDocUpdate.bind(this);
@@ -192,18 +205,36 @@ export class ProtocolProvider implements ProtocolCodecContext {
   }
 
   public connect(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (!this.socketAttached) {
+      const socket = this.options.socket ?? this.createInternalSocket();
+      this.attachSocket(socket, Boolean(this.options.socket));
+    }
+
+    if (!this.socket) {
+      throw new Error('Socket 尚未初始化');
+    }
+
+    if (this.socket.connected) {
+      this.setStatus('connected');
+      this.joinRoom();
       return;
     }
-    this.manualDisconnect = false;
-    this.clearReconnectTimer();
-    this.createWebSocket();
+
+    this.setStatus('connecting');
+
+    if (!this.isExternalSocket) {
+      this.socket.connect();
+    }
   }
 
   public disconnect(): void {
-    this.manualDisconnect = true;
-    this.closeWebSocket();
+    this.joinedRoom = false;
     this.clearPending();
+
+    if (this.socket && !this.isExternalSocket) {
+      this.socket.disconnect();
+    }
+
     this.setStatus('disconnected');
   }
 
@@ -211,6 +242,12 @@ export class ProtocolProvider implements ProtocolCodecContext {
     this.disconnect();
     this.doc.off('update', this.docUpdateListener);
     this.awareness.off('update', this.awarenessListener);
+    this.detachSocket();
+    if (this.socket && !this.isExternalSocket) {
+      this.socket.close();
+    }
+    this.socket = undefined;
+    this.socketAttached = false;
   }
 
   public setSynced(value: boolean): void {
@@ -225,89 +262,122 @@ export class ProtocolProvider implements ProtocolCodecContext {
     }
   }
 
-  private get shouldReconnect(): boolean {
-    if (!this.options.reconnect) {
-      return false;
-    }
-    if (typeof this.options.maxReconnectAttempts === 'number') {
-      return this.reconnectAttempts < this.options.maxReconnectAttempts;
-    }
-    return true;
+  private get targetDocId(): string {
+    return this.options.docId ?? this.doc.guid;
   }
 
-  private createWebSocket(): void {
-    this.setStatus('connecting');
-    this.reconnectAttempts = 0;
-    if (!this.WebSocketImpl) {
-      throw new Error('WebSocket implementation missing');
-    }
-    const ws = new this.WebSocketImpl(this.options.url);
-    ws.binaryType = 'arraybuffer';
+  private get targetRoomId(): string {
+    return this.options.roomId ?? 'default';
+  }
 
-    ws.onopen = () => {
-      this.ws = ws;
+  private get isSocketReady(): boolean {
+    return Boolean(this.socket && this.socket.connected && this.joinedRoom);
+  }
+
+  private createInternalSocket(): Socket {
+    return io(this.options.url, {
+      autoConnect: false,
+      transports: ['websocket'],
+      reconnection: this.options.reconnect ?? true,
+      reconnectionAttempts: this.options.maxReconnectAttempts,
+      reconnectionDelay: this.options.reconnectInterval,
+      reconnectionDelayMax: this.options.reconnectMaxInterval,
+      ...this.options.socketOptions,
+    });
+  }
+
+  private attachSocket(socket: Socket, isExternal: boolean): void {
+    this.detachSocket();
+    this.socket = socket;
+    this.isExternalSocket = isExternal;
+    this.socketAttached = true;
+
+    const handleConnect = () => {
       this.setStatus('connected');
+      this.joinedRoom = false;
+      this.joinRoom();
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleDisconnect = (_reason: Socket.DisconnectReason) => {
+      this.joinedRoom = false;
+      this.synced = false;
+      this.setStatus('disconnected');
+    };
+
+    const handleConnectError = (error: Error) => {
+      this.emit('error', error);
+    };
+
+    const handleProtocolMessage = (message: ProtocolSocketMessage) => {
+      if (!message || message.docId !== this.targetDocId) {
+        return;
+      }
+      try {
+        const buffer = fromBase64(message.payload);
+        this.processEnvelope(buffer);
+      } catch (error) {
+        this.emit('error', error);
+      }
+    };
+
+    const handleJoined = (payload: { docId: string }) => {
+      if (!payload || payload.docId !== this.targetDocId) {
+        return;
+      }
+      this.joinedRoom = true;
+      this.setSynced(false);
       this.flushPending();
       this.sendSyncStep1();
     };
 
-    ws.onmessage = (event) => {
-      void this.handleIncomingMessage(event.data);
-    };
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('protocol-message', handleProtocolMessage);
+    socket.on('joined', handleJoined);
 
-    ws.onclose = () => {
-      this.ws = undefined;
-      this.setStatus('disconnected');
-      if (!this.manualDisconnect && this.shouldReconnect) {
-        this.scheduleReconnect();
-      }
-    };
-
-    ws.onerror = (event) => {
-      this.emit('error', event);
+    this.socketListeners = {
+      connect: handleConnect,
+      disconnect: handleDisconnect,
+      connectError: handleConnectError,
+      protocolMessage: handleProtocolMessage,
+      joined: handleJoined,
     };
   }
 
-  private closeWebSocket(): void {
-    if (!this.ws) {
+  private detachSocket(): void {
+    if (!this.socket || !this.socketListeners) {
       return;
     }
-    this.ws.close();
-    this.ws = undefined;
+    const listeners = this.socketListeners;
+    this.socket.off('connect', listeners.connect);
+    this.socket.off('disconnect', listeners.disconnect);
+    this.socket.off('connect_error', listeners.connectError);
+    this.socket.off('protocol-message', listeners.protocolMessage);
+    this.socket.off('joined', listeners.joined);
+    this.socketListeners = undefined;
   }
 
-  private handleIncomingMessage(
-    data: string | ArrayBuffer | ArrayBufferView | Blob,
-  ): Promise<void> {
-    return new Promise((resolve) => {
-      const payloadPromise =
-        data instanceof ArrayBuffer
-          ? Promise.resolve(new Uint8Array(data))
-          : data instanceof Uint8Array
-            ? Promise.resolve(data)
-            : data instanceof Blob
-              ? data.arrayBuffer().then((buffer) => new Uint8Array(buffer))
-              : Promise.resolve(textEncoder.encode(data.toString()));
+  private joinRoom(): void {
+    if (!this.socket) {
+      return;
+    }
+    const docId = this.targetDocId;
+    this.socket.emit('join', { docId });
+  }
 
-      payloadPromise
-        .then((buffer) => {
-          const { metadata, payload: remotePayload } =
-            decodeKafkaEnvelope(buffer);
-          const reply = decodeMessage(this, remotePayload, true);
-          if (reply) {
-            this.queueMessage(reply, {
-              roomId: metadata.roomId,
-              docId: metadata.docId,
-              subdocId: metadata.subdocId,
-              version: metadata.version,
-            });
-          }
-        })
-        .catch((error) => {
-          this.emit('error', error);
-        })
-        .finally(() => resolve());
-    });
+  private processEnvelope(buffer: Uint8Array): void {
+    const { metadata, payload: remotePayload } = decodeKafkaEnvelope(buffer);
+    const reply = decodeMessage(this, remotePayload, true);
+    if (reply) {
+      this.queueMessage(reply, {
+        roomId: metadata.roomId,
+        docId: metadata.docId,
+        subdocId: metadata.subdocId,
+        version: metadata.version,
+      });
+    }
   }
 
   private queueMessage(
@@ -319,7 +389,7 @@ export class ProtocolProvider implements ProtocolCodecContext {
   }
 
   private flushPending(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.isSocketReady) {
       return;
     }
     while (this.pendingMessages.length > 0) {
@@ -332,8 +402,29 @@ export class ProtocolProvider implements ProtocolCodecContext {
         next.payload,
       );
       const envelope = encodeKafkaEnvelope(next.payload, metadata);
-      this.ws.send(envelope);
+      this.sendEnvelope(
+        metadata.docId ?? this.targetDocId,
+        metadata.roomId,
+        envelope,
+      );
     }
+  }
+
+  private sendEnvelope(
+    docId: string,
+    roomId: string | undefined,
+    envelope: Uint8Array,
+  ): void {
+    if (!this.socket) {
+      return;
+    }
+    const payload = toBase64(envelope);
+    const message: ClientProtocolMessage = {
+      docId,
+      roomId: roomId ?? this.targetRoomId,
+      payload,
+    };
+    this.socket.emit('protocol-message', message);
   }
 
   private sendSyncStep1(): void {
@@ -358,29 +449,6 @@ export class ProtocolProvider implements ProtocolCodecContext {
     const payload = encodeAwareness(this.awareness);
     this.queueMessage(payload, { note: 'awareness' });
     this.emit('awareness', changes);
-  }
-
-  private scheduleReconnect(): void {
-    if (!this.shouldReconnect) {
-      return;
-    }
-    const base = this.options.reconnectInterval ?? 500;
-    const max = this.options.reconnectMaxInterval ?? 10000;
-    const interval = Math.min(
-      max,
-      base * Math.pow(1.5, this.reconnectAttempts),
-    );
-    this.reconnectAttempts += 1;
-    this.reconnectTimer = setTimeout(() => {
-      this.createWebSocket();
-    }, interval);
-  }
-
-  private clearReconnectTimer(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = undefined;
-    }
   }
 
   private clearPending(): void {
