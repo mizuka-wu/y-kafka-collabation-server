@@ -41,7 +41,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     Client --> Transport[Transport encodeKafkaEnvelope]
-    Transport --> Topic[yjs-doc-{room} topic]
+    Transport --> Topic["yjs-doc-{room} topic"]
     Topic --> Partition1[Partition (consumer group)]
     Topic --> Partition2[Partition (consumer group)]
     Partition1 --> InstanceA[Transport 实例 A]
