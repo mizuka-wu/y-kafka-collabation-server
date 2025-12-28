@@ -11,8 +11,8 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Buffer } from 'buffer';
-
-import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
+import { decodeKafkaEnvelope } from '@y-kafka-collabation-server/protocol';
+import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 import { ServerCollabService } from './server-collab.service';
 
 type ProtocolPayload =
@@ -134,17 +134,27 @@ export class ServerCollabGateway
     @ConnectedSocket() _client: Socket,
     @MessageBody() message: GatewayProtocolMessage,
   ) {
-    const metadata =
-      'metadata' in message
-        ? (message.metadata as ProtocolMessageMetadata)
-        : undefined;
-    const docId = message.docId ?? metadata?.docId;
-    const roomId = message.roomId ?? metadata?.roomId ?? 'default';
+    const docId = message.docId;
+    const roomId = message.roomId ?? 'default';
     const payload = message.payload;
     if (!docId) {
       throw new Error('protocol-message missing docId');
     }
     const buffer = toUint8Array(payload);
+
+    try {
+      const { metadata: envelopeMeta } = decodeKafkaEnvelope(buffer);
+      if (envelopeMeta.note === 'sync-request') {
+        await this.respondWithDocumentState(_client, docId);
+        return;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to decode envelope for ${docId}, forwarding raw payload`,
+        error as Error,
+      );
+    }
+
     return this.collabService.publishUpdate(roomId, docId, buffer);
   }
 
@@ -163,5 +173,37 @@ export class ServerCollabGateway
       return roomParam[0];
     }
     return roomParam as string;
+  }
+
+  private async respondWithDocumentState(client: Socket, docId: string) {
+    const state = await this.collabService.getDocumentState(docId);
+    const payloads: Uint8Array[] = [];
+
+    if (state.snapshot) {
+      payloads.push(this.base64ToUint8Array(state.snapshot));
+    }
+    for (const update of state.updates) {
+      payloads.push(this.base64ToUint8Array(update));
+    }
+
+    if (!payloads.length) {
+      this.logger.warn(`No snapshot or updates available for ${docId}`);
+      return;
+    }
+
+    for (const payload of payloads) {
+      client.emit('protocol-message', {
+        docId,
+        payload,
+      });
+    }
+    this.logger.log(
+      `Replayed ${payloads.length} historical payload(s) for ${docId} to ${client.id}`,
+    );
+  }
+
+  private base64ToUint8Array(input: string): Uint8Array {
+    const binary = Buffer.from(input, 'base64');
+    return new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
   }
 }
