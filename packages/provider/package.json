@@ -33,7 +33,7 @@
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y/protocols": "^1.0.6-3",
-    "@y/y": "^14.0.0-16",
+    "yjs": "^13.6.28",
     "buffer": "^6.0.3",
     "socket.io-client": "^4.8.3"
   }

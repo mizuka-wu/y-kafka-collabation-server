@@ -25,7 +25,7 @@
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
     "@y/protocols": "^1.0.6-3",
-    "@y/y": "^14.0.0-16",
+    "yjs": "^13.6.28",
     "kafkajs": "^2.2.4",
     "mysql2": "^3.16.0",
     "nestjs-pino": "^4.5.0",

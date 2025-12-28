@@ -13,7 +13,7 @@
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
     "@y/protocols": "^1.0.6-3",
-    "@y/y": "^14.0.0-16",
+    "yjs": "^13.6.28",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5",
     "lit": "^3.3.2",

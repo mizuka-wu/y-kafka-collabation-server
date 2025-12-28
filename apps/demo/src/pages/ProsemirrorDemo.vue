@@ -46,11 +46,7 @@
         <div class="server-status-list">
           <h3>Server 活跃文档</h3>
           <ul>
-            <li
-              v-for="entry in serverStatus"
-              :key="entry.docId"
-              :class="{ active: entry.docId === docId }"
-            >
+            <li v-for="entry in serverStatus" :key="entry.docId" :class="{ active: entry.docId === docId }">
               <strong>{{ entry.docId }}</strong>
               <div>Msgs: {{ entry.kafkaMessageCount }}</div>
               <div>Snap: {{ entry.latestSnapshot ? '✅' : '❌' }}</div>
@@ -64,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, shallowRef, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
-import * as Y from '@y/y';
+import * as Y from 'yjs';
 import { Awareness } from '@y/protocols/awareness';
 import {
   ProtocolProvider,
@@ -224,8 +220,7 @@ watchEffect((onCleanup) => {
       ...changes.removed,
     ];
     pushProviderLog(
-      `Awareness: ${
-        touched.length ? touched.join(', ') : 'none'
+      `Awareness: ${touched.length ? touched.join(', ') : 'none'
       } · ${new Date().toLocaleTimeString()}`,
     );
   });

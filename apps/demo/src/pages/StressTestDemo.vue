@@ -8,13 +8,7 @@
       <div class="control-row">
         <label>
           模拟客户端数量:
-          <input
-            type="number"
-            v-model.number="clientCount"
-            :disabled="isRunning"
-            min="1"
-            max="100"
-          />
+          <input type="number" v-model.number="clientCount" :disabled="isRunning" min="1" max="100" />
         </label>
         <label>
           目标 DocID:
@@ -44,12 +38,7 @@
     </div>
 
     <div class="client-grid">
-      <div
-        v-for="client in stats"
-        :key="client.id"
-        class="client-card"
-        :class="client.status"
-      >
+      <div v-for="client in stats" :key="client.id" class="client-card" :class="client.status">
         <div class="client-header">
           <strong>Client #{{ client.id }}</strong>
           <span class="status-label">{{ client.status }}</span>
@@ -63,7 +52,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref, computed } from 'vue';
-import * as Y from '@y/y';
+import * as Y from 'yjs';
 import {
   ProtocolProvider,
   ProviderStatus,

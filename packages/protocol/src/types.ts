@@ -1,6 +1,6 @@
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
-import type * as Y from '@y/y';
+import type * as Y from 'yjs';
 import * as awarenessProtocol from '@y/protocols/awareness';
 
 /**
