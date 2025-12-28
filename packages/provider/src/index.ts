@@ -14,20 +14,57 @@ import {
   decodeMessage,
 } from '@y-kafka-collabation-server/protocol';
 
-const toBase64 = (buf: Uint8Array): string =>
-  Buffer.from(buf).toString('base64');
+type ProtocolPayload =
+  | string
+  | ArrayBuffer
+  | ArrayBufferView
+  | Uint8Array
+  | Buffer;
 
-const fromBase64 = (value: string): Uint8Array => Buffer.from(value, 'base64');
+const toUint8Array = (payload: ProtocolPayload): Uint8Array => {
+  if (payload instanceof Uint8Array) {
+    return payload;
+  }
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload)) {
+    return new Uint8Array(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+  }
+  if (payload instanceof ArrayBuffer) {
+    return new Uint8Array(payload);
+  }
+  if (ArrayBuffer.isView(payload)) {
+    return new Uint8Array(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+  }
+  if (typeof payload === 'string') {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(payload, 'base64');
+    }
+    const decoder = atob(payload);
+    const array = new Uint8Array(decoder.length);
+    for (let i = 0; i < decoder.length; i += 1) {
+      array[i] = decoder.charCodeAt(i);
+    }
+    return array;
+  }
+  throw new Error('Unsupported protocol payload type');
+};
 
 type ProtocolSocketMessage = {
   docId: string;
-  payload: string;
+  payload: ProtocolPayload;
 };
 
 type ClientProtocolMessage = {
   docId: string;
   roomId: string;
-  payload: string;
+  payload: Uint8Array;
 };
 
 type AwarenessChangePayload = {
@@ -314,7 +351,7 @@ export class ProtocolProvider implements ProtocolCodecContext {
         return;
       }
       try {
-        const buffer = fromBase64(message.payload);
+        const buffer = toUint8Array(message.payload);
         this.processEnvelope(buffer);
       } catch (error) {
         this.emit('error', error);
@@ -418,11 +455,10 @@ export class ProtocolProvider implements ProtocolCodecContext {
     if (!this.socket) {
       return;
     }
-    const payload = toBase64(envelope);
     const message: ClientProtocolMessage = {
       docId,
       roomId: roomId ?? this.targetRoomId,
-      payload,
+      payload: envelope,
     };
     this.socket.emit('protocol-message', message);
   }

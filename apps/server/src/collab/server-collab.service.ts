@@ -5,19 +5,20 @@ import {
   DocumentSnapshot,
   SnowflakeIdGenerator,
 } from '@y-kafka-collabation-server/persistence';
+import { Buffer } from 'buffer';
 
 @Injectable()
 export class ServerCollabService implements OnModuleDestroy {
   private readonly logger = new Logger(ServerCollabService.name);
   private readonly kafka: Kafka;
   private readonly producer: Producer;
-  private readonly messages = new Map<string, string[]>();
+  private readonly messages = new Map<string, Uint8Array[]>();
   private readonly dataSource: DataSource;
   private snapshotRepo?: Repository<DocumentSnapshot>;
   private readonly kafkaReady: Promise<void>;
   private readonly persistenceReady: Promise<void>;
   private readonly updateListeners: Array<
-    (docId: string, payload: string) => void
+    (docId: string, payload: Uint8Array) => void
   > = [];
   private readonly snowflake: SnowflakeIdGenerator;
 
@@ -94,7 +95,10 @@ export class ServerCollabService implements OnModuleDestroy {
     }
 
     // 2. Get recent updates from memory
-    const updates = this.messages.get(docId) ?? [];
+    const updates =
+      this.messages
+        .get(docId)
+        ?.map((buf) => Buffer.from(buf).toString('base64')) ?? [];
 
     return {
       docId,
@@ -103,16 +107,16 @@ export class ServerCollabService implements OnModuleDestroy {
     };
   }
 
-  async publishUpdate(roomId: string, docId: string, content: string) {
+  async publishUpdate(roomId: string, docId: string, content: Uint8Array) {
     await this.kafkaReady;
     const topic = this.topicFor(roomId);
     await this.producer.send({
       topic,
-      messages: [{ value: content }],
+      messages: [{ value: Buffer.from(content) }],
     });
     this.enqueueMessage(docId, content);
     this.logger.log(
-      `Published update for ${docId} (room ${roomId}) to topic ${topic}`,
+      `Published update for ${docId} (room ${roomId}) to topic ${topic} (bytes=${content.byteLength})`,
     );
     for (const listener of this.updateListeners) {
       listener(docId, content);
@@ -121,7 +125,7 @@ export class ServerCollabService implements OnModuleDestroy {
       docId,
       roomId,
       topic,
-      content,
+      content: Buffer.from(content).toString('base64'),
     };
   }
 
@@ -146,11 +150,16 @@ export class ServerCollabService implements OnModuleDestroy {
   getMessages(docId: string) {
     return {
       docId,
-      messages: this.messages.get(docId) ?? [],
+      messages:
+        this.messages
+          .get(docId)
+          ?.map((buf) => Buffer.from(buf).toString('base64')) ?? [],
     };
   }
 
-  registerUpdateListener(listener: (docId: string, payload: string) => void) {
+  registerUpdateListener(
+    listener: (docId: string, payload: Uint8Array) => void,
+  ) {
     this.updateListeners.push(listener);
   }
 
@@ -163,12 +172,12 @@ export class ServerCollabService implements OnModuleDestroy {
     });
   }
 
-  private enqueueMessage(docId: string, content: string) {
+  private enqueueMessage(docId: string, content: Uint8Array) {
     if (!this.messages.has(docId)) {
       this.messages.set(docId, []);
     }
     const record = this.messages.get(docId)!;
-    record.push(content);
+    record.push(new Uint8Array(content));
     if (record.length > 20) {
       record.shift();
     }

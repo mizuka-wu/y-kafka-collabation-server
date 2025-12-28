@@ -10,8 +10,43 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { Buffer } from 'buffer';
 
 import { ServerCollabService } from './server-collab.service';
+
+type ProtocolPayload =
+  | string
+  | ArrayBuffer
+  | ArrayBufferView
+  | Uint8Array
+  | Buffer;
+
+const toUint8Array = (payload: ProtocolPayload): Uint8Array => {
+  if (payload instanceof Uint8Array) {
+    return payload;
+  }
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload)) {
+    return new Uint8Array(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+  }
+  if (payload instanceof ArrayBuffer) {
+    return new Uint8Array(payload);
+  }
+  if (ArrayBuffer.isView(payload)) {
+    return new Uint8Array(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+  }
+  if (typeof payload === 'string') {
+    return Buffer.from(payload, 'base64');
+  }
+  throw new Error('Unsupported protocol payload type');
+};
 
 @WebSocketGateway({
   cors: {
@@ -36,7 +71,10 @@ export class ServerCollabGateway
         return;
       }
       for (const socket of sockets) {
-        socket.emit('protocol-message', { docId, payload });
+        socket.emit('protocol-message', {
+          docId,
+          payload,
+        });
       }
     });
     this.logger.log('Gateway initialized and listening for Kafka updates');
@@ -74,14 +112,15 @@ export class ServerCollabGateway
 
   @SubscribeMessage('protocol-message')
   async handleProtocolMessage(message: {
-    roomId: string;
+    roomId?: string;
     docId: string;
-    payload: string;
+    payload: ProtocolPayload;
   }) {
+    const buffer = toUint8Array(message.payload);
     return this.collabService.publishUpdate(
-      message.roomId ?? 'default', // Fallback for backward compatibility if needed, though client sends it now
+      message.roomId ?? 'default',
       message.docId,
-      message.payload,
+      buffer,
     );
   }
 

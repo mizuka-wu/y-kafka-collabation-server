@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Buffer } from 'buffer';
 import { ServerCollabService } from './server-collab.service';
 import { PublishUpdateDto } from './dto/publish-update.dto';
 import { PersistSnapshotDto } from './dto/persist-snapshot.dto';
@@ -43,10 +44,15 @@ export class ServerCollabController {
   })
   @ApiResponse({ status: 201, description: 'Update published successfully.' })
   async publish(@Body() payload: PublishUpdateDto) {
+    const binaryContent = Buffer.from(payload.content, 'base64');
     return this.collab.publishUpdate(
       payload.roomId ?? 'default',
       payload.docId,
-      payload.content,
+      new Uint8Array(
+        binaryContent.buffer,
+        binaryContent.byteOffset,
+        binaryContent.byteLength,
+      ),
     );
   }
 
