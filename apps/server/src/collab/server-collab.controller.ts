@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Logger } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Buffer } from 'buffer';
 import { BadRequestException } from '@nestjs/common';
@@ -11,6 +11,8 @@ import { DocumentStateDto } from './dto/document-state.dto';
 @ApiTags('collab')
 @Controller('collab')
 export class ServerCollabController {
+  private readonly logger = new Logger(ServerCollabController.name);
+
   constructor(private readonly collab: ServerCollabService) {}
 
   @Get('doc/:docId')
@@ -47,6 +49,9 @@ export class ServerCollabController {
   @ApiResponse({ status: 201, description: 'Update published successfully.' })
   async publish(@Body() payload: PublishUpdateDto) {
     if (!payload.version) {
+      this.logger.warn(
+        `Rejecting publish for ${payload.docId} due to missing version`,
+      );
       throw new BadRequestException('version is required');
     }
     const binaryContent = Buffer.from(payload.content, 'base64');

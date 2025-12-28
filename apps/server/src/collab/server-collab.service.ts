@@ -149,21 +149,40 @@ export class ServerCollabService implements OnModuleDestroy {
       updates = history.map((entry) => entry.payload);
     }
 
-    const kafkaUpdates =
+    const kafkaUpdatesRaw =
       this.messages
         .get(docId)
         ?.map((buf) => Buffer.from(buf).toString('base64')) ?? [];
 
-    const aggregatedUpdates =
-      (await this.aggregateKafkaUpdates(docId, kafkaUpdates)) ?? kafkaUpdates;
+    const kafkaAggregated =
+      (await this.aggregateKafkaUpdates(docId, kafkaUpdatesRaw)) ??
+      kafkaUpdatesRaw;
 
-    return {
+    const mergedUpdates = [...updates, ...kafkaAggregated];
+
+    const response: {
+      docId: string;
+      snapshot: string | null;
+      updates: string[];
+      _debug?: {
+        kafkaUpdates: string[];
+        kafkaTail?: KafkaTailPosition | null;
+      };
+    } = {
       docId,
       snapshot,
-      updates,
-      kafkaUpdates: aggregatedUpdates,
-      kafkaTail: this.kafkaTail.get(docId) ?? null,
+      updates: mergedUpdates,
     };
+
+    const kafkaTail = this.kafkaTail.get(docId) ?? null;
+    if (kafkaUpdatesRaw.length > 0 || kafkaTail) {
+      response._debug = {
+        kafkaUpdates: kafkaUpdatesRaw,
+        kafkaTail,
+      };
+    }
+
+    return response;
   }
 
   async publishUpdate(params: {
@@ -386,7 +405,13 @@ export class ServerCollabService implements OnModuleDestroy {
     metadata: ProtocolMessageMetadata,
     envelope: Uint8Array,
   ) {
-    if (!this.historyRepo || !metadata.docId) {
+    if (!this.historyRepo) {
+      return;
+    }
+    if (!metadata.docId) {
+      this.logger.warn(
+        'Skipping history persistence due to missing metadata.docId',
+      );
       return;
     }
     if (!metadata.version) {

@@ -11,6 +11,22 @@ class KafkaTailDto {
   offset!: string;
 }
 
+class DocumentStateDebugDto {
+  @ApiProperty({
+    description: 'Raw Kafka envelopes (base64) recently cached by the server',
+    type: [String],
+  })
+  kafkaUpdates!: string[];
+
+  @ApiProperty({
+    description: 'Latest Kafka tail position used for replay',
+    required: false,
+    nullable: true,
+    type: KafkaTailDto,
+  })
+  kafkaTail?: KafkaTailDto | null;
+}
+
 export class DocumentStateDto {
   @ApiProperty({ description: 'The unique document identifier' })
   docId: string;
@@ -23,23 +39,18 @@ export class DocumentStateDto {
   snapshot: string | null;
 
   @ApiProperty({
-    description: 'Recent updates that might not be in the snapshot',
+    description:
+      'Updates since snapshot. Includes persistence history + latest Kafka aggregation (all base64 encoded).',
     type: [String],
   })
   updates: string[];
 
   @ApiProperty({
     description:
-      'Latest Kafka messages (base64 envelopes) used for aggregation',
-    type: [String],
-  })
-  kafkaUpdates: string[];
-
-  @ApiProperty({
-    description: 'Latest Kafka tail position used for replay',
+      'Debug information (optional). Contains raw Kafka cache and tail offsets.',
     required: false,
     nullable: true,
-    type: KafkaTailDto,
+    type: DocumentStateDebugDto,
   })
-  kafkaTail?: KafkaTailDto | null;
+  _debug?: DocumentStateDebugDto | null;
 }

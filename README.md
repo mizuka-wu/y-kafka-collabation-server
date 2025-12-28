@@ -42,14 +42,14 @@ sequenceDiagram
 graph TD
     Client --> Transport[Transport encodeKafkaEnvelope]
     Transport --> Topic["yjs-doc-{room} topic"]
-    Topic --> Partition1[Partition (consumer group)]
-    Topic --> Partition2[Partition (consumer group)]
-    Partition1 --> InstanceA[Transport 实例 A]
-    Partition2 --> InstanceB[Transport 实例 B]
-    InstanceA --> RoomA[RoomRegistry 路由]
-    InstanceB --> RoomB[RoomRegistry 路由]
-    RoomA --> SocketA[Client socket]
-    RoomB --> SocketB[Client socket]
+    Topic --> Partition1[Partition ("consumer group")]
+    Topic --> Partition2[Partition ("consumer group")]
+    Partition1 --> InstanceA["Transport 实例 A"]
+    Partition2 --> InstanceB["Transport 实例 B"]
+    InstanceA --> RoomA["RoomRegistry 路由"]
+    InstanceB --> RoomB["RoomRegistry 路由"]
+    RoomA --> SocketA["Client socket"]
+    RoomB --> SocketB["Client socket"]
 ```
 
 metadata（`roomId/docId/subdocId`）决定 topic & partition，consumer group 在多个实例间分配 partition，实例内部的 `RoomRegistry` 查找 socket 以避免跨 room 广播。
@@ -140,7 +140,7 @@ flowchart TD
 | 主题命名 | 服务端遵循 `topicFor(docId)`（目前输出 `sync-${roomId}`）；生产环境可通过 `topicResolver.resolveSyncTopic` 组合 `roomId`/`tenantId`/`docId` 生成 `yjs-sync-${tenant}-${room}` 等分区层级。 |
 | 分区策略 | Producer 使用 `Partitioners.LegacyPartitioner`（依据消息 key 的 hash 决定 partition），因此只需在 Kafka 端为 `sync-*` 主题创建多于 1 个 partition 即可让同一 doc 的消息按 partition 均匀分布；consumer group 每个实例消费分配的 partition。 |
 | topic 创建示例 | ```bash<br>bin/kafka-topics.sh --create --topic sync-room-42 --partitions 6 \ --replication-factor 1 --bootstrap-server localhost:9092``` |
-| consumer group | `ServerCollabService` 可通过配置文件指定 consumer group，Kafka 会将 partition 分配给不同 consumer 实例，同时确保 `GroupInstanceId` 若设置可保留分区。 |
+| consumer group | `ServerCollabService` 可通过配置文件指定 consumer group（默认为 `collab-server-sync`），Kafka 会将 partition 分配给不同 consumer 实例，同时确保 `GroupInstanceId` 若设置可保留分区。 |
 | 验证分片 | ```bash<br>bin/kafka-topics.sh --describe --topic sync-room-42 --bootstrap-server localhost:9092``` 观察 partition 数量和 leader/distribution；verify consumer groups with `kafka-consumer-groups.sh --describe --group collab-server-sync`。 |
 | 进阶 | 可在 `ServerCollabService.topicFor` 中引入 `roomId` hash 逻辑，把 doc 映射到多个 topic；也可自定义 `Partitioners.LegacyPartitioner` 替代函数以锁定 awareness/update 到特定 partition。 |
 
@@ -149,7 +149,7 @@ flowchart TD
 ### 环境准备
 
 1. `pnpm install`
-2. 配置 Kafka topic（`yjs-sync-{room}`、`yjs-awareness-{room}`、可选 `yjs-control-{room}`）并在 YAML 配置中填入 brokers/consumerGroup。
+2. 配置 Kafka topic（`yjs-sync-{room}`、`yjs-awareness-{room}`、可选 `yjs-control-{room}`）并在 YAML 配置里填入 brokers、consumerGroup 等参数。
 3. 数据库（`DATA_SOURCE_URL`）；`persistence` 默认用 TypeORM+MySQL，表 `document_snapshots`、`update_history`、`awareness` 不持久化。
 
 ### 启动服务

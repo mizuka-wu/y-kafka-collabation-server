@@ -93,8 +93,6 @@ sequenceDiagram
 * [ ] **`GET /collab/doc/:docId` 输出对齐 README**
   * 响应字段限定为 `{ docId, snapshot, updates }`（updates 已合并 persistence history + Kafka 增量）；若需调试字段，可增加 `_debug` 子对象并在文档中说明。
   * `aggregateKafkaUpdates` 的结果直接合入 `updates`，保证 HTTP 阅读态与 WebSocket 同步体验一致。
-* [ ] **`GET /collab/messages` 调试接口**
-  * 在 controller 中暴露新路由，返回最近缓存的 envelope Base64（可选 `raw=true` 输出 metadata）；用于排查 metadata/partition。
 * [ ] **历史写入的强校验**
   * `recordHistory` 前检查 envelope metadata，缺 `version` 或 `docId` 时记录错误并拒绝入库，防止 `update_history` 空洞。
   * 对 HTTP publish 与 Gateway path 增加日志，标记 metadata 缺失或类型错误的请求。
