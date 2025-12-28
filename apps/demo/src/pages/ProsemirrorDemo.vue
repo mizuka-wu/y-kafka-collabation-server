@@ -60,7 +60,6 @@
 
 <script setup lang="ts">
 import 'prosemirror-view/style/prosemirror.css';
-import 'y-prosemirror/dist/y-prosemirror.css';
 import { ref, shallowRef, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
