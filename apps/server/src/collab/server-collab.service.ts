@@ -107,8 +107,9 @@ export class ServerCollabService implements OnModuleDestroy {
     return Array.from(docIds).map((docId) => ({
       docId,
       kafkaMessageCount: this.messages.get(docId)?.length ?? 0,
-      latestSnapshot:
+      latestSnapshot: this.bufferToBase64(
         snapshots.find((row) => row.docId === docId)?.data ?? null,
+      ),
     }));
   }
 
@@ -128,7 +129,7 @@ export class ServerCollabService implements OnModuleDestroy {
         order: { version: 'DESC' },
       });
       if (record) {
-        snapshot = record.data;
+        snapshot = this.bufferToBase64(record.data);
         snapshotVersion = record.version;
       }
     }
@@ -146,7 +147,9 @@ export class ServerCollabService implements OnModuleDestroy {
         order: { version: 'ASC' },
         take: 200,
       });
-      updates = history.map((entry) => entry.payload);
+      updates = history
+        .map((entry) => this.bufferToBase64(entry.payload))
+        .filter((payload): payload is string => Boolean(payload));
     }
 
     const kafkaUpdatesRaw =
@@ -236,7 +239,7 @@ export class ServerCollabService implements OnModuleDestroy {
       subdocId,
       version,
       timestamp: timestamp ?? Date.now(),
-      data: snapshot,
+      data: this.snapshotInputToBuffer(snapshot),
       storageLocation: 'server',
     });
     await this.snapshotRepo.save(record);
@@ -426,7 +429,7 @@ export class ServerCollabService implements OnModuleDestroy {
       version: metadata.version,
       timestamp: metadata.timestamp ?? Date.now(),
       metadata: JSON.stringify({ roomId: metadata.roomId }),
-      payload: Buffer.from(envelope).toString('base64'),
+      payload: Buffer.from(envelope),
     });
     await this.historyRepo.save(record);
   }

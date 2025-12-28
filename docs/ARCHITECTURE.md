@@ -93,10 +93,10 @@ sequenceDiagram
 * [ ] **`GET /collab/doc/:docId` 输出对齐 README**
   * 响应字段限定为 `{ docId, snapshot, updates }`（updates 已合并 persistence history + Kafka 增量）；若需调试字段，可增加 `_debug` 子对象并在文档中说明。
   * `aggregateKafkaUpdates` 的结果直接合入 `updates`，保证 HTTP 阅读态与 WebSocket 同步体验一致。
-* [ ] **历史写入的强校验**
+* [x] **历史写入的强校验**
   * `recordHistory` 前检查 envelope metadata，缺 `version` 或 `docId` 时记录错误并拒绝入库，防止 `update_history` 空洞。
   * 对 HTTP publish 与 Gateway path 增加日志，标记 metadata 缺失或类型错误的请求。
-* [ ] **文档 & Swagger 更新**
+* [x] **文档 & Swagger 更新**
   * 更新 `README.md` 与 `apps/server/README.md` 描述新的 HTTP 契约和 TopicResolver 使用方式。
   * Swagger (`DocumentBuilder`) 自动暴露新增字段，示例请求包含完整 metadata，便于后续验证。
 
