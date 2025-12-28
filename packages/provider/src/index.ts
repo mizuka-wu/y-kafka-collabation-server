@@ -1,4 +1,4 @@
-import * as Y from '@y/y';
+import type * as Y from '@y/y';
 import * as awarenessProtocol from '@y/protocols/awareness';
 import { io, Socket, SocketOptions, ManagerOptions } from 'socket.io-client';
 import { Buffer } from 'buffer';
