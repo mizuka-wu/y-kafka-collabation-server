@@ -23,22 +23,32 @@
 | `/collab/doc/:docId` | GET | 获取文档完整状态（最新快照 + 近期更新），用于**纯阅读态**或**降级初始化**。 |
 | `/collab/publish` | POST | 接收 `PublishUpdateDto`，将内容写入 Kafka topic。可用于**降级写**。 |
 | `/collab/persist` | POST | 接收 `PersistSnapshotDto`，将快照写入模拟 MySQL。 |
-| `/collab/messages?docId=...` | GET | （可选拓展）查看 `docId` 下的 Kafka 消息列表。 |
+| （无 `/collab/messages`） | | 当前版本暂未提供直接拉取 Kafka 消息历史的接口。 |
 
 ### 请求体示例
 
 #### Get Document State (`/collab/doc/:docId`)
 
-用于不建立 WebSocket 连接的情况下加载文档（如只读模式）。
+- Query：`subdocId`（可选）用于获取子文档快照。
+- Response：
 
 ```json
 {
   "docId": "my-document-guid",
+  "subdocId": "optional-subdoc",
   "snapshot": "base64-encoded-snapshot-or-null",
   "updates": [
     "base64-encoded-update-1",
     "base64-encoded-update-2"
-  ]
+  ],
+  "_debug": {
+    "kafkaUpdates": ["raw-base64-update"],
+    "kafkaTail": {
+      "topic": "sync-room-1",
+      "partition": 0,
+      "offset": "123"
+    }
+  }
 }
 ```
 
@@ -48,6 +58,12 @@
 {
   "roomId": "default",
   "docId": "my-document-guid",
+  "subdocId": "optional-subdoc",
+  "version": "42",
+  "senderId": "123456",
+  "timestamp": 1700000000000,
+  "channel": "doc",
+  "note": "optional flag",
   "content": "base64-encoded-update-content"
 }
 ```
@@ -57,6 +73,9 @@
 ```json
 {
   "docId": "my-document-guid",
+  "subdocId": "optional-subdoc",
+  "version": "42",
+  "timestamp": 1700000000000,
   "snapshot": "base64-encoded-snapshot-or-json-string"
 }
 ```
@@ -73,31 +92,46 @@
 
 这个 demo/server 组合展示了 provider 如何在客户端与服务端 Kafka 架构之间打通，同时 server 端还能序列化保存 snapshot（模拟 MySQL）。
 
-## 运行前提
+## 配置方式
 
-| 变量 | 默认 | 描述 |
-| --- | --- | --- |
-| `KAFKA_BROKERS` | `localhost:9092` | Kafka 集群地址，可传递多个 host，逗号分隔。 |
-| `MYSQL_HOST` | `127.0.0.1` | MySQL 服务器地址。 |
-| `MYSQL_PORT` | `3306` | MySQL 端口。 |
-| `MYSQL_USER` | `root` | MySQL 用户名。 |
-| `MYSQL_PASSWORD` | `(空)` | MySQL 密码。 |
-| `MYSQL_DATABASE` | `collab` | 存储 snapshot 的数据库名称。 |
+当前版本通过 `apps/server/config/server.config.yaml` 统一管理 Kafka、MySQL 与对象存储配置，示例：
 
-服务启动前请确保 Kafka 和 MySQL 已经运行，可让本地出具的 Kafka 服务监听 `KAFKA_BROKERS`，MySQL 对应账户拥有 `CREATE TABLE` 和 `INSERT` 权限。
+```yaml
+kafka:
+  clientId: collab-server
+  brokers:
+    - localhost:9092
+  consumerGroup: collab-server-sync
+  topics:
+    sync: sync-{roomId}
+    awareness: awareness-{roomId}
+    control: control-{roomId}
+  topicRoomPriority:
+    - roomId
+    - docId
 
-## 环境变量配置
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ""
+  database: collab
+  synchronize: true
+  poolSize: 10
 
-`apps/server` 直接从 `process.env` 读取上方表格中的变量。推荐在项目根目录或 `apps/server` 下创建一个 `.env` 文件（该文件可由 `dotenv` 在启动脚本中加载）并只填写你需要覆盖的字段，例如：
-
+storage:
+  driver: local
+  basePath: dist/data
 ```
-KAFKA_BROKERS=localhost:9092
-MYSQL_HOST=127.0.0.1
-MYSQL_USER=root
-MYSQL_DATABASE=collab
-```
 
-如果不设置任何变量，服务会使用表格里列出的本地默认值，因此你可以先在本地启动 Kafka/MySQL 并直接运行 `pnpm --filter @y-kafka-collabation-server/server dev`。
+- 若要调整配置，直接修改该 YAML 文件（或基于不同环境维护多份文件并在部署时覆盖）。
+- YAML 中的值会作为 `ConfigService` 的最终来源，必要时仍可结合 `.env`（由 Nest 注入 `process.env`）提供额外变量给其他模块。
+
+服务启动前请确保：
+
+1. Kafka、MySQL、对象存储（本地目录/MinIO/S3 等）已经就绪；
+2. `packages/persistence` 已构建，保证 `DocumentSnapshot`/`UpdateHistory` 实体可用；
+3. MySQL 账户具备 `CREATE TABLE`、`INSERT`、`UPDATE` 权限。
 
 ## 启动流程
 
