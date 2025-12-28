@@ -113,7 +113,7 @@ export class ServerCollabService implements OnModuleDestroy {
     }));
   }
 
-  async getDocumentState(docId: string) {
+  async getDocumentState(docId: string, subdocId?: string) {
     await Promise.all([
       this.kafkaReady,
       this.kafkaConsumerReady,
@@ -125,7 +125,10 @@ export class ServerCollabService implements OnModuleDestroy {
     let snapshotVersion: string | null = null;
     if (this.snapshotRepo) {
       const record = await this.snapshotRepo.findOne({
-        where: { docId },
+        where: {
+          docId,
+          ...(subdocId ? { subdocId } : {}),
+        },
         order: { version: 'DESC' },
       });
       if (record) {
@@ -141,9 +144,13 @@ export class ServerCollabService implements OnModuleDestroy {
         where: snapshotVersion
           ? {
               docId,
+              ...(subdocId ? { subdocId } : {}),
               version: MoreThan(snapshotVersion),
             }
-          : { docId },
+          : {
+              docId,
+              ...(subdocId ? { subdocId } : {}),
+            },
         order: { version: 'ASC' },
         take: 200,
       });
@@ -165,6 +172,7 @@ export class ServerCollabService implements OnModuleDestroy {
 
     const response: {
       docId: string;
+      subdocId?: string;
       snapshot: string | null;
       updates: string[];
       _debug?: {
@@ -173,6 +181,7 @@ export class ServerCollabService implements OnModuleDestroy {
       };
     } = {
       docId,
+      subdocId,
       snapshot,
       updates: mergedUpdates,
     };

@@ -30,7 +30,7 @@ export class DocumentSnapshot {
   })
   updatedAt!: Date;
 
-  @Column({ type: 'varbinary', length: 65535 })
+  @Column({ type: 'longblob' })
   data!: Buffer;
 
   @Column({ type: 'varchar', length: 256, nullable: true })
@@ -68,7 +68,7 @@ export class UpdateHistory {
   @Column({ type: 'text' })
   metadata!: string;
 
-  @Column({ type: 'varbinary', length: 65535 })
+  @Column({ type: 'longblob' })
   payload!: Buffer;
 }
 
