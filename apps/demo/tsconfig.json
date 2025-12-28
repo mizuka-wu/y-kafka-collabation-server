@@ -1,7 +1,6 @@
 {
   "extends": "@y-kafka-collabation-server/typescript-config/base.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ES2022",
