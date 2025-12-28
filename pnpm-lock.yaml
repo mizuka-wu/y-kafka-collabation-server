@@ -44,9 +44,6 @@ importers:
       '@y-kafka-collabation-server/provider':
         specifier: workspace:*
         version: link:../../packages/provider
-      '@y/protocols':
-        specifier: ^1.0.6-3
-        version: 1.0.6-3(@y/y@14.0.0-16)
       lit:
         specifier: ^3.3.2
         version: 3.3.2
@@ -86,6 +83,9 @@ importers:
       y-prosemirror:
         specifier: ^1.0.4
         version: 1.3.7(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.4)(y-protocols@1.0.7)(yjs@13.6.28)
+      y-protocols:
+        specifier: ^1.0.6-3
+        version: 1.0.7(yjs@13.6.28)
       yjs:
         specifier: ^13.6.28
         version: 13.6.28
@@ -144,9 +144,6 @@ importers:
       '@y-kafka-collabation-server/provider':
         specifier: workspace:*
         version: link:../../packages/provider
-      '@y/protocols':
-        specifier: ^1.0.6-3
-        version: 1.0.6-3(@y/y@14.0.0-16)
       kafkajs:
         specifier: ^2.2.4
         version: 2.2.4
@@ -174,6 +171,9 @@ importers:
       typeorm:
         specifier: ^0.3.28
         version: 0.3.28(mysql2@3.16.0)(ts-node@10.9.2)
+      y-protocols:
+        specifier: ^1.0.6-3
+        version: 1.0.7(yjs@13.6.28)
       yjs:
         specifier: ^13.6.28
         version: 13.6.28
@@ -346,12 +346,12 @@ importers:
 
   packages/protocol:
     dependencies:
-      '@y/protocols':
-        specifier: ^1.0.6-3
-        version: 1.0.6-3(@y/y@14.0.0-16)
       lib0:
         specifier: ^0.2.115-6
         version: 0.2.116
+      y-protocols:
+        specifier: ^1.0.6-3
+        version: 1.0.7(yjs@13.6.28)
       yjs:
         specifier: ^13.6.28
         version: 13.6.28
@@ -383,15 +383,15 @@ importers:
       '@y-kafka-collabation-server/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@y/protocols':
-        specifier: ^1.0.6-3
-        version: 1.0.6-3(@y/y@14.0.0-16)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
+      y-protocols:
+        specifier: ^1.0.6-3
+        version: 1.0.7(yjs@13.6.28)
       yjs:
         specifier: ^13.6.28
         version: 13.6.28
@@ -3260,23 +3260,6 @@ packages:
   /@xtuc/long@4.2.2:
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
     dev: true
-
-  /@y/protocols@1.0.6-3(@y/y@14.0.0-16):
-    resolution: {integrity: sha512-ZVp2am1/rYpvRx040m+5i1nj8KUfjDjdGuK+zqe5dicEUcz/cKEFP/+pA+Ap262qBksJx++HjlOKPhuj6of05Q==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
-    peerDependencies:
-      '@y/y': ^14.0.0-16 || ^14
-    dependencies:
-      '@y/y': 14.0.0-16
-      lib0: 0.2.116
-    dev: false
-
-  /@y/y@14.0.0-16:
-    resolution: {integrity: sha512-4zwbLnLannzUiEdJn9r3IS2FCVdHqADZHLqAivzAuKeoCGZ55JUFebp/YUtrYuTE2ZaBgctxpzulqAAHaahtIA==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
-    dependencies:
-      lib0: 0.2.116
-    dev: false
 
   /accepts@1.3.8:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}

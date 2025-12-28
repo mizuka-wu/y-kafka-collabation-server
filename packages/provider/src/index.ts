@@ -1,5 +1,5 @@
 import type * as Y from 'yjs';
-import * as awarenessProtocol from '@y/protocols/awareness';
+import * as awarenessProtocol from 'y-protocols/awareness.js';
 import { io, Socket, SocketOptions, ManagerOptions } from 'socket.io-client';
 import { Buffer } from 'buffer';
 import {

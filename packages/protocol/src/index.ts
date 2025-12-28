@@ -1,9 +1,9 @@
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import type * as Y from 'yjs';
-import * as syncProtocol from '@y/protocols/sync';
-import * as authProtocol from '@y/protocols/auth';
-import * as awarenessProtocol from '@y/protocols/awareness';
+import * as syncProtocol from 'y-protocols/sync.js';
+import * as authProtocol from 'y-protocols/auth.js';
+import * as awarenessProtocol from 'y-protocols/awareness.js';
 import {
   ProtocolMessageHandler,
   ProtocolMessageMetadata,

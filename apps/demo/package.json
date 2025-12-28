@@ -12,7 +12,7 @@
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
-    "@y/protocols": "^1.0.6-3",
+    "y-protocols": "^1.0.6-3",
     "yjs": "^13.6.28",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5",

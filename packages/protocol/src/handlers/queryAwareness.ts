@@ -1,5 +1,5 @@
 import * as encoding from 'lib0/encoding';
-import * as awarenessProtocol from '@y/protocols/awareness';
+import * as awarenessProtocol from 'y-protocols/awareness';
 import { ProtocolMessageHandler, ProtocolMessageType } from '../types';
 
 export const queryAwarenessHandler: ProtocolMessageHandler = (

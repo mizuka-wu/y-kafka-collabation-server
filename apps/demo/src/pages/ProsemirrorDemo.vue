@@ -61,7 +61,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import * as Y from 'yjs';
-import { Awareness } from '@y/protocols/awareness';
+import { Awareness } from 'y-protocols/awareness';
 import {
   ProtocolProvider,
   ProviderStatus,

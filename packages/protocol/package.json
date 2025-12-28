@@ -29,7 +29,7 @@
     "vitest": "^1.2.1"
   },
   "dependencies": {
-    "@y/protocols": "^1.0.6-3",
+    "y-protocols": "^1.0.6-3",
     "yjs": "^13.6.28",
     "lib0": "^0.2.115-6"
   }

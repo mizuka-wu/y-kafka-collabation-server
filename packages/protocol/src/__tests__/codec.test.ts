@@ -1,4 +1,4 @@
-import * as awarenessProtocol from '@y/protocols/awareness';
+import * as awarenessProtocol from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import {

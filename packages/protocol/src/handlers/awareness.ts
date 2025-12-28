@@ -1,10 +1,6 @@
-import * as awarenessProtocol from '@y/protocols/awareness';
+import * as awarenessProtocol from 'y-protocols/awareness';
 import * as decoding from 'lib0/decoding';
-import {
-  ProtocolCodecContext,
-  ProtocolMessageHandler,
-  ProtocolMessageType,
-} from '../types';
+import { ProtocolMessageHandler } from '../types';
 
 export const awarenessHandler: ProtocolMessageHandler = (
   _encoder,
