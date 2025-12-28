@@ -77,7 +77,16 @@
 
 <script setup lang="ts">
 import 'prosemirror-view/style/prosemirror.css';
-import { ref, shallowRef, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import {
+  ref,
+  shallowRef,
+  watch,
+  watchEffect,
+  onMounted,
+  onBeforeUnmount,
+  computed,
+} from 'vue';
+import { useRoute } from 'vue-router';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 import {
@@ -112,10 +121,11 @@ const VITE_COLLAB_SERVER_URL =
 const docId = ref('demo-doc');
 const inputDocId = ref(docId.value);
 
+const route = useRoute();
 const editorRef = ref<HTMLDivElement | null>(null);
 const editorView = shallowRef<EditorView | null>(null);
 const ydoc = shallowRef<Y.Doc>();
-const awareness = shallowRef<Awareness>();
+const awareness = shallowRef<Awareness | null>(null);
 const provider = shallowRef<ProtocolProvider | null>(null);
 
 const serverStatus = ref<ServerStatus[]>([]);
@@ -127,9 +137,12 @@ const providerLog = ref<string[]>([]);
 let statusInterval: ReturnType<typeof setInterval> | null = null;
 const lastSnapshotVersion = ref<string | null>(null);
 
+const awarenessDisabled = computed(
+  () => route.query.disableAwareness === '1',
+);
+
 const recreateCollabState = (id: string) => {
   ydoc.value = new Y.Doc({ guid: id });
-  awareness.value = new Awareness(ydoc.value);
 };
 
 recreateCollabState(docId.value);
@@ -139,6 +152,18 @@ watch(docId, (id) => {
     recreateCollabState(id);
   }
 });
+
+watch(
+  [() => ydoc.value, awarenessDisabled],
+  ([doc, disabled]) => {
+    if (!doc || disabled) {
+      awareness.value = null;
+      return;
+    }
+    awareness.value = new Awareness(doc);
+  },
+  { immediate: true },
+);
 
 const pushProviderLog = (message: string) => {
   providerLog.value = [message, ...providerLog.value].slice(0, 10);
@@ -189,8 +214,9 @@ onMounted(() => {
 watchEffect((onCleanup) => {
   const container = editorRef.value;
   const doc = ydoc.value;
-  const aw = awareness.value;
-  if (!container || !doc || !aw) {
+  const disabled = awarenessDisabled.value;
+  const aw = disabled ? null : awareness.value;
+  if (!container || !doc || (!aw && !disabled)) {
     return;
   }
 
@@ -206,7 +232,7 @@ watchEffect((onCleanup) => {
     doc: initialDoc,
     plugins: [
       ySyncPlugin(fragment as any, { mapping }),
-      yCursorPlugin(aw as any),
+      ...(aw ? [yCursorPlugin(aw as any)] : []),
       yUndoPlugin(),
       history(),
       keymap({
@@ -231,9 +257,10 @@ watchEffect((onCleanup) => {
 
 watchEffect((onCleanup) => {
   const doc = ydoc.value;
-  const aw = awareness.value;
+  const disabled = awarenessDisabled.value;
+  const aw = disabled ? null : awareness.value;
   const currentDocId = docId.value;
-  if (!doc || !aw) {
+  if (!doc || (!aw && !disabled)) {
     return;
   }
 
@@ -245,7 +272,7 @@ watchEffect((onCleanup) => {
     url: VITE_COLLAB_SERVER_URL,
     docId: currentDocId,
     roomId: 'collab-doc',
-    awareness: aw,
+    ...(aw ? { awareness: aw } : {}),
     metadataCustomizer: (metadata) => ({
       ...metadata,
       version: Date.now().toString(),
@@ -260,18 +287,19 @@ watchEffect((onCleanup) => {
     lastProviderSync.value = new Date().toISOString();
     pushProviderLog(`SyncStep2 完成 · ${new Date().toLocaleTimeString()}`);
   });
-  instance.on('awareness', (changes) => {
-    const touched = [
-      ...changes.added,
-      ...changes.updated,
-      ...changes.removed,
-    ];
-    pushProviderLog(
-      `Awareness: ${touched.length ? touched.join(', ') : 'none'
-      } · ${new Date().toLocaleTimeString()}`,
-    );
-  });
-
+  if (!disabled) {
+    instance.on('awareness', (changes) => {
+      const touched = [
+        ...changes.added,
+        ...changes.updated,
+        ...changes.removed,
+      ];
+      pushProviderLog(
+        `Awareness: ${touched.length ? touched.join(', ') : 'none'
+        } · ${new Date().toLocaleTimeString()}`,
+      );
+    });
+  }
   provider.value = instance;
   refreshDocumentState();
 

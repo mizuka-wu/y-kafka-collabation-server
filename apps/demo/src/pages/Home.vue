@@ -3,10 +3,14 @@
     <header class="hero">
       <h1>Y-Kafka Collaboration Demo</h1>
       <p>基于 Kafka + ProtocolProvider 的高可用协同服务演示</p>
+      <label class="awareness-toggle">
+        <input type="checkbox" v-model="disableAwareness" />
+        以 disableAwareness=1 打开 Demo
+      </label>
     </header>
 
     <div class="demo-cards">
-      <RouterLink to="/prosemirror" class="demo-card">
+      <RouterLink :to="prosemirrorLink" class="demo-card">
         <h2>Prosemirror 协同</h2>
         <p>
           经典的富文本协同场景。
@@ -56,4 +60,11 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
+import { computed, ref } from 'vue';
+
+const disableAwareness = ref(false);
+const prosemirrorLink = computed(() => ({
+  path: '/prosemirror',
+  query: disableAwareness.value ? { disableAwareness: '1' } : {},
+}));
 </script>
