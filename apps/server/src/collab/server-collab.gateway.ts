@@ -13,7 +13,6 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Buffer } from 'buffer';
 import {
   decodeKafkaEnvelope,
-  encodeKafkaEnvelope,
   ProtocolMessageMetadata,
 } from '@y-kafka-collabation-server/protocol';
 import { ServerCollabService } from './server-collab.service';
@@ -152,7 +151,8 @@ export class ServerCollabGateway
     const buffer = toUint8Array(message.payload);
 
     try {
-      const { metadata: envelopeMeta } = decodeKafkaEnvelope(buffer);
+      const { metadata: envelopeMeta, payload: decodedPayload } =
+        decodeKafkaEnvelope(buffer);
       if (envelopeMeta.note === 'sync-request') {
         await this.respondWithDocumentState(client, docId);
         return;
@@ -163,7 +163,7 @@ export class ServerCollabGateway
       return this.collabService.publishUpdate({
         metadata: envelopeMeta,
         channel,
-        payload: buffer,
+        payload: decodedPayload,
       });
     } catch (error) {
       this.logger.warn(
@@ -182,11 +182,10 @@ export class ServerCollabGateway
       docId,
       timestamp: message.metadata.timestamp ?? Date.now(),
     };
-    const envelope = encodeKafkaEnvelope(buffer, metadata);
     return this.collabService.publishUpdate({
       metadata,
       channel,
-      payload: envelope,
+      payload: buffer,
     });
   }
 
