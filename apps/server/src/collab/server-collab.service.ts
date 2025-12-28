@@ -76,6 +76,7 @@ export class ServerCollabService implements OnModuleDestroy {
     if (!this.snapshotRepo) {
       return [];
     }
+
     const snapshots = await this.snapshotRepo.find();
     const docIds = new Set<string>([
       ...snapshots.map((row) => row.docId),
@@ -224,29 +225,26 @@ export class ServerCollabService implements OnModuleDestroy {
   private async startKafkaConsumer() {
     await this.persistenceReady;
     await this.consumer.connect();
-    await this.consumer.subscribe({
-      topic: /^docs-/,
-      fromBeginning: false,
-    });
+    await this.consumer.subscribe({ topic: /^docs-/, fromBeginning: false });
     await this.consumer.run({
       eachMessage: async ({ message }) => {
         if (!message.value) {
           return;
         }
         try {
-          const payload = new Uint8Array(
+          const envelope = new Uint8Array(
             message.value.buffer,
             message.value.byteOffset,
             message.value.byteLength,
           );
-          const { metadata, payload: yPayload } = decodeKafkaEnvelope(payload);
+          const { metadata } = decodeKafkaEnvelope(envelope);
           if (!metadata.docId) {
             return;
           }
-          this.enqueueMessage(metadata.docId, yPayload);
-          await this.recordHistory(metadata, yPayload);
+          this.enqueueMessage(metadata.docId, envelope);
+          await this.recordHistory(metadata, envelope);
           for (const listener of this.updateListeners) {
-            listener(metadata.docId, yPayload);
+            listener(metadata.docId, envelope);
           }
         } catch (error) {
           this.logger.error(
@@ -274,7 +272,7 @@ export class ServerCollabService implements OnModuleDestroy {
       timestamp?: number;
       version?: string;
     },
-    payload: Uint8Array,
+    envelope: Uint8Array,
   ) {
     if (!this.historyRepo || !metadata.docId) {
       return;
@@ -285,7 +283,7 @@ export class ServerCollabService implements OnModuleDestroy {
       version: metadata.version ?? String(this.snowflake.nextId()),
       timestamp: metadata.timestamp ?? Date.now(),
       metadata: JSON.stringify({ roomId: metadata.roomId }),
-      payload: Buffer.from(payload).toString('base64'),
+      payload: Buffer.from(envelope).toString('base64'),
     });
     await this.historyRepo.save(record);
   }
