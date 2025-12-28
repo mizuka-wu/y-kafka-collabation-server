@@ -4,7 +4,7 @@ export default config({
   external: [
     '@y-kafka-collabation-server/protocol',
     '@y/protocols',
-    '@y/y',
+    'yjs',
     'socket.io-client',
     'lib0',
     'lib0/buffer'
