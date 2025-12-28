@@ -35,14 +35,21 @@ export interface MysqlConfig {
   poolSize: number;
 }
 
+export interface StorageConfig {
+  driver: 'local' | 'minio' | 's3' | 'oss' | string;
+  basePath: string;
+}
+
 export interface AppConfig {
   kafka: KafkaConfig;
   mysql: MysqlConfig;
+  storage: StorageConfig;
 }
 
 type RawConfig = Partial<{
   kafka: Partial<KafkaConfig & { topics: Partial<TopicTemplates> }>;
   mysql: Partial<MysqlConfig>;
+  storage: Partial<StorageConfig>;
 }>;
 
 const defaultConfig: AppConfig = {
@@ -65,6 +72,10 @@ const defaultConfig: AppConfig = {
     database: 'collab',
     synchronize: true,
     poolSize: 10,
+  },
+  storage: {
+    driver: 'local',
+    basePath: join(process.cwd(), 'dist', 'data'),
   },
 };
 
@@ -122,9 +133,17 @@ export const configuration = (): AppConfig => {
         : defaultConfig.mysql.synchronize,
   };
 
+  const storage: StorageConfig = {
+    ...defaultConfig.storage,
+    ...raw.storage,
+    basePath: raw.storage?.basePath ?? defaultConfig.storage.basePath,
+    driver: raw.storage?.driver ?? defaultConfig.storage.driver,
+  };
+
   return {
     kafka,
     mysql,
+    storage,
   };
 };
 

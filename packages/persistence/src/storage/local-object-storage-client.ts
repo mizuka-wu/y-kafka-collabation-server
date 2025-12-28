@@ -21,9 +21,9 @@ export class LocalObjectStorageClient implements ObjectStorageClient {
   private basePath: string;
 
   constructor(options?: Pick<ObjectStorageOptions, 'basePath'>) {
-    this.basePath =
-      options?.basePath ??
-      resolve(process.cwd(), '.object-storage', 'snapshots');
+    this.basePath = options?.basePath
+      ? resolve(options.basePath)
+      : resolve(process.cwd(), '.object-storage', 'snapshots');
   }
 
   async putObject(params: PutObjectParams): Promise<PutObjectResult> {

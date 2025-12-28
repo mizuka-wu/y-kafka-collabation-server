@@ -119,6 +119,22 @@ flowchart LR
 
 Persistence service 依据 metadata + `version` 写入 `document_snapshots` 与 `update_history`（仅 doc update），提供 `recoverSnapshot` 和 `exportHistory`；无 GC History service 订阅 Kafka，保留 snapshot 之间的 baseline 供历史回放。awareness 不写入持久化，只在 Kafka/clients 之间传播。
 
+### 4.1 对象存储配置（S3/MinIO/OSS/本地）
+
+* `apps/server/config/server.config.yaml` 新增 `storage` 节点：
+
+  ```yaml
+  storage:
+    driver: local   # default，可替换为 minio/s3/oss 或自定义字符串
+    basePath: dist/data
+  ```
+
+  默认 `driver=local` 时，`ServerCollabService` 会使用 `LocalObjectStorageClient` 将快照写入 `dist/data`，并把返回的 `storageLocation` 记录在数据库里。
+
+* 服务器在 `ServerCollabModule` 中注册 `OBJECT_STORAGE_CLIENT`。如果需要 MinIO/S3/阿里云 OSS，只需提供自定义的 `ObjectStorageClient` 实现以及对应的 `driver` 配置即可。实现需覆盖 `putObject/getObject`，其余流程保持不变。
+
+* 恢复时若数据库里没有快照二进制但保存了 `storageLocation`，服务会自动从对象存储回填，保证长期归档的数据可被读回。
+
 ### 首次进入 room 的强同步
 
 ```mermaid

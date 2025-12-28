@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer, Partitioners, Consumer } from 'kafkajs';
 import { DataSource, Repository, MoreThan } from 'typeorm';
@@ -7,6 +7,7 @@ import {
   DocumentSnapshot,
   UpdateHistory,
 } from '@y-kafka-collabation-server/persistence';
+import type { ObjectStorageClient } from '@y-kafka-collabation-server/persistence';
 import {
   decodeKafkaEnvelope,
   encodeKafkaEnvelope,
@@ -17,6 +18,7 @@ import { Buffer } from 'buffer';
 import { CollabChannel } from './types';
 import { TemplateTopicResolver, TopicResolver } from '../kafka/topic-resolver';
 import { AppConfigSnapshot } from '../config/configuration';
+import { OBJECT_STORAGE_CLIENT } from './object-storage.provider';
 
 type KafkaTailPosition = {
   topic: string;
@@ -46,6 +48,8 @@ export class ServerCollabService implements OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService<AppConfigSnapshot>,
+    @Inject(OBJECT_STORAGE_CLIENT)
+    private readonly storageClient: ObjectStorageClient,
   ) {
     const kafkaConfig = this.configService.get('kafka', { infer: true });
     const mysqlConfig = this.configService.get('mysql', { infer: true });
@@ -132,7 +136,8 @@ export class ServerCollabService implements OnModuleDestroy {
         order: { version: 'DESC' },
       });
       if (record) {
-        snapshot = this.bufferToBase64(record.data);
+        const payload = await this.resolveSnapshotData(record);
+        snapshot = this.bufferToBase64(payload);
         snapshotVersion = record.version;
       }
     }
@@ -243,13 +248,20 @@ export class ServerCollabService implements OnModuleDestroy {
     if (!this.snapshotRepo) {
       throw new Error('Persistence layer not initialized');
     }
+    const binary = this.snapshotInputToBuffer(snapshot);
+    const storageLocation = await this.persistSnapshotToObjectStorage({
+      docId,
+      version,
+      subdocId,
+      payload: binary,
+    });
     const record = this.snapshotRepo.create({
       docId,
       subdocId,
       version,
       timestamp: timestamp ?? Date.now(),
-      data: this.snapshotInputToBuffer(snapshot),
-      storageLocation: 'server',
+      data: binary,
+      storageLocation: storageLocation ?? 'local',
     });
     await this.snapshotRepo.save(record);
     this.logger.log(`Persisted snapshot for ${docId} via TypeORM`);
@@ -478,5 +490,69 @@ export class ServerCollabService implements OnModuleDestroy {
       payload: Buffer.from(envelope),
     });
     await this.historyRepo.save(record);
+  }
+
+  private sanitizeStorageSegment(segment: string) {
+    return segment.replace(/[^a-zA-Z0-9-_]/g, '_');
+  }
+
+  private buildSnapshotStorageKey(params: {
+    docId: string;
+    version: string;
+    subdocId?: string;
+  }) {
+    const { docId, version, subdocId } = params;
+    const normalized = [
+      this.sanitizeStorageSegment(docId),
+      this.sanitizeStorageSegment(subdocId ?? 'root'),
+      this.sanitizeStorageSegment(version),
+    ];
+    return `${normalized.join('/')}.snapshot`;
+  }
+
+  private async resolveSnapshotData(
+    record: DocumentSnapshot,
+  ): Promise<Buffer | null> {
+    if (record.data?.byteLength) {
+      return Buffer.from(record.data);
+    }
+    if (!record.storageLocation) {
+      return null;
+    }
+    try {
+      const payload = await this.storageClient.getObject({
+        location: record.storageLocation,
+      });
+      return payload;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load snapshot from storage location ${record.storageLocation}`,
+        error as Error,
+      );
+      return null;
+    }
+  }
+
+  private async persistSnapshotToObjectStorage(params: {
+    docId: string;
+    version: string;
+    subdocId?: string;
+    payload: Buffer;
+  }) {
+    const key = this.buildSnapshotStorageKey(params);
+    try {
+      const result = await this.storageClient.putObject({
+        key,
+        body: params.payload,
+        contentType: 'application/octet-stream',
+      });
+      return result.location;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to store snapshot ${params.docId}@${params.version} in object storage`,
+        error as Error,
+      );
+      return undefined;
+    }
   }
 }

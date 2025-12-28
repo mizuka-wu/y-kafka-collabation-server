@@ -60,7 +60,6 @@
           <div v-if="documentState" class="http-details">
             <p>快照：{{ documentState.snapshot ? '存在' : '无' }}</p>
             <p>历史 Updates：{{ documentState.updates.length }}</p>
-            <p>Kafka Aggregated：{{ documentState.kafkaUpdates.length }}</p>
             <p v-if="documentState.kafkaTail">
               Kafka Tail：{{ documentState.kafkaTail.topic }} / P{{ documentState.kafkaTail.partition }} @
               {{ documentState.kafkaTail.offset }}
