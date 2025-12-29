@@ -150,6 +150,9 @@ importers:
       '@y-kafka-collabation-server/provider':
         specifier: workspace:*
         version: link:../../packages/provider
+      '@y-kafka-collabation-server/transport':
+        specifier: workspace:*
+        version: link:../../packages/transport
       kafkajs:
         specifier: ^2.2.4
         version: 2.2.4

@@ -1,390 +1,50 @@
 <template>
   <div class="demo-page">
     <header class="page-header">
-      <h2>Prosemirror 协同编辑器</h2>
-      <div class="doc-switcher">
-        <form @submit.prevent="switchDoc">
-          <label>当前文档 ID: </label>
-          <input v-model="inputDocId" placeholder="Enter Doc ID" />
-          <button type="submit">切换文档</button>
-        </form>
-      </div>
+      <h2>文档视图（静态占位）</h2>
+      <p>
+        Prosemirror 协同演示已下线，所有事件与降级能力将统一由新的网关层实现。
+        此页面仅保留数据模型与流程说明，方便对照 README。
+      </p>
     </header>
 
-    <div class="content-grid">
-      <article class="editor-panel">
-        <div class="editor-toolbar">
-          <button type="button" @click="handlePersist">保存 Snapshot</button>
-          <span class="status-chip">{{ statusMessage }}</span>
-        </div>
-        <div ref="editorRef" class="editor" />
-        <p class="editor-footnote">
-          当前连接到 Room: <strong>{{ docId }}</strong>
-        </p>
-      </article>
+    <section class="card">
+      <h3>ProtocolMessage 元数据字段</h3>
+      <table class="metadata-table">
+        <thead>
+          <tr>
+            <th>字段</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="field in metadataFields" :key="field.key">
+            <td>{{ field.key }}</td>
+            <td>{{ field.description }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
-      <aside class="status-panel">
-        <div class="provider-card">
-          <h3>ProtocolProvider 状态</h3>
-          <p>
-            连接状态：
-            <span :class="`status-${providerStatus}`">
-              {{ providerStatus }}
-            </span>
-          </p>
-          <p>
-            上次同步：
-            {{ lastProviderSync ? new Date(lastProviderSync).toLocaleTimeString() : '尚未完成' }}
-          </p>
-          <div class="provider-log">
-            <div v-for="(entry, index) in providerLog" :key="index" class="log-entry">
-              {{ entry }}
-            </div>
-          </div>
-        </div>
-
-        <div class="server-status-list">
-          <h3>Server 活跃文档</h3>
-          <ul>
-            <li v-for="entry in serverStatus" :key="entry.docId" :class="{ active: entry.docId === docId }">
-              <strong>{{ entry.docId }}</strong>
-              <div>Msgs: {{ entry.kafkaMessageCount }}</div>
-              <div>Snap: {{ entry.latestSnapshot ? '✅' : '❌' }}</div>
-            </li>
-          </ul>
-        </div>
-
-        <div class="http-panel">
-          <h3>HTTP 降级状态</h3>
-          <button type="button" @click="refreshDocumentState">刷新 HTTP 状态</button>
-          <div v-if="documentState" class="http-details">
-            <p>快照：{{ documentState.snapshot ? '存在' : '无' }}</p>
-            <p>历史 Updates：{{ documentState.updates.length }}</p>
-            <p v-if="documentState.kafkaTail">
-              Kafka Tail：{{ documentState.kafkaTail.topic }} / P{{ documentState.kafkaTail.partition }} @
-              {{ documentState.kafkaTail.offset }}
-            </p>
-            <p v-else>Kafka Tail：暂无</p>
-          </div>
-          <div v-else class="http-details">
-            <p>尚未加载 HTTP 状态</p>
-          </div>
-        </div>
-      </aside>
-    </div>
+    <section class="card">
+      <h3>后续工作</h3>
+      <ol>
+        <li>在网关层实现 WebSocket 事件、降级 HTTP 回放与权限校验。</li>
+        <li>Demo 仅消费网关输出的快照/回放数据，不直连 Kafka。</li>
+        <li>待网关完成后，再恢复 Prosemirror 视图与交互逻辑。</li>
+      </ol>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import 'prosemirror-view/style/prosemirror.css';
-import {
-  ref,
-  shallowRef,
-  watch,
-  watchEffect,
-  onMounted,
-  onBeforeUnmount,
-  computed,
-} from 'vue';
-import { useRoute } from 'vue-router';
-import * as Y from 'yjs';
-import { Awareness } from 'y-protocols/awareness';
-import {
-  ProtocolProvider,
-  ProviderStatus,
-} from '@y-kafka-collabation-server/provider';
-import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
-import { schema as basicSchema } from 'prosemirror-schema-basic';
-import { history } from 'prosemirror-history';
-import { keymap } from 'prosemirror-keymap';
-import { baseKeymap } from 'prosemirror-commands';
-import {
-  ySyncPlugin,
-  yCursorPlugin,
-  yUndoPlugin,
-  initProseMirrorDoc,
-  undo,
-  redo,
-} from 'y-prosemirror';
-import {
-  fetchStatus,
-  fetchDocumentState,
-  persistSnapshot,
-  DocumentState,
-  ServerStatus,
-} from '../lib/api';
-
-const VITE_COLLAB_SERVER_URL =
-  import.meta.env.VITE_COLLAB_SERVER_URL ?? 'http://localhost:3000';
-
-const docId = ref('demo-doc');
-const inputDocId = ref(docId.value);
-
-const route = useRoute();
-const editorRef = ref<HTMLDivElement | null>(null);
-const editorView = shallowRef<EditorView | null>(null);
-const ydoc = shallowRef<Y.Doc>();
-const awareness = shallowRef<Awareness | null>(null);
-const provider = shallowRef<ProtocolProvider | null>(null);
-
-const serverStatus = ref<ServerStatus[]>([]);
-const documentState = ref<DocumentState | null>(null);
-const statusMessage = ref('尚未发送');
-const providerStatus = ref<ProviderStatus>('disconnected');
-const lastProviderSync = ref<string | null>(null);
-const providerLog = ref<string[]>([]);
-let statusInterval: ReturnType<typeof setInterval> | null = null;
-const lastSnapshotVersion = ref<string | null>(null);
-
-const textDecoder = new TextDecoder();
-
-const awarenessDisabled = computed(
-  () => route.query.disableAwareness === '1',
-);
-
-const recreateCollabState = (id: string) => {
-  ydoc.value = new Y.Doc({ guid: id });
-};
-
-recreateCollabState(docId.value);
-
-watch(docId, (id) => {
-  if (id) {
-    recreateCollabState(id);
-  }
-});
-
-watch(
-  [() => ydoc.value, awarenessDisabled],
-  ([doc, disabled]) => {
-    if (!doc || disabled) {
-      awareness.value = null;
-      return;
-    }
-    awareness.value = new Awareness(doc);
-  },
-  { immediate: true },
-);
-
-const pushProviderLog = (message: string) => {
-  providerLog.value = [message, ...providerLog.value].slice(0, 10);
-};
-
-const decodeEnvelopeMetadata = (envelope: Uint8Array) => {
-  if (envelope.length < 5) return null;
-  const format = envelope[0];
-  if (format !== 1) return null;
-  const view = new DataView(
-    envelope.buffer,
-    envelope.byteOffset,
-    envelope.byteLength,
-  );
-  const metadataLength = view.getUint32(1, true);
-  const start = 5;
-  const end = start + metadataLength;
-  if (envelope.length < end) return null;
-  try {
-    return JSON.parse(
-      textDecoder.decode(envelope.subarray(start, end)),
-    ) as Record<string, unknown>;
-  } catch (error) {
-    console.warn('Failed to decode metadata', error);
-    return null;
-  }
-};
-
-const attachSendSpy = (providerInstance: ProtocolProvider) => {
-  const original = (providerInstance as any).sendEnvelope?.bind(
-    providerInstance,
-  ) as
-    | ((
-      docId: string,
-      roomId: string | undefined,
-      envelope: Uint8Array,
-    ) => void)
-    | undefined;
-  if (!original) {
-    return () => { };
-  }
-  (providerInstance as any).sendEnvelope = (
-    docId: string,
-    roomId: string | undefined,
-    envelope: Uint8Array,
-  ) => {
-    const metadata = decodeEnvelopeMetadata(envelope);
-    const channel = metadata?.note ?? 'update';
-    pushProviderLog(
-      `emit protocol-message · channel=${channel} · doc=${metadata?.docId ?? docId
-      } · room=${metadata?.roomId ?? roomId ?? 'default'} · bytes=${envelope.byteLength
-      }`,
-    );
-    return original(docId, roomId, envelope);
-  };
-  return () => {
-    (providerInstance as any).sendEnvelope = original;
-  };
-};
-
-const refreshDocumentState = async () => {
-  try {
-    documentState.value = await fetchDocumentState(
-      VITE_COLLAB_SERVER_URL,
-      docId.value,
-    );
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-const handlePersist = async () => {
-  if (!ydoc.value) return;
-  const snapshot = JSON.stringify(ydoc.value.toJSON());
-  const version =
-    lastSnapshotVersion.value ?? Date.now().toString();
-  statusMessage.value = '正在持久化';
-  await persistSnapshot(
-    VITE_COLLAB_SERVER_URL,
-    docId.value,
-    snapshot,
-    version,
-  );
-  lastSnapshotVersion.value = version;
-  statusMessage.value = '快照已保存';
-  await refreshDocumentState();
-};
-
-const handleFetchStatus = async () => {
-  try {
-    serverStatus.value = await fetchStatus(VITE_COLLAB_SERVER_URL);
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-onMounted(() => {
-  handleFetchStatus();
-  statusInterval = setInterval(handleFetchStatus, 5000);
-  refreshDocumentState();
-});
-
-watchEffect((onCleanup) => {
-  const container = editorRef.value;
-  const doc = ydoc.value;
-  const disabled = awarenessDisabled.value;
-  const aw = disabled ? null : awareness.value;
-  if (!container || !doc || (!aw && !disabled)) {
-    return;
-  }
-
-  container.innerHTML = '';
-  const fragment = doc.getXmlFragment('prosemirror');
-  const { doc: initialDoc, mapping } = initProseMirrorDoc(
-    fragment as any,
-    basicSchema,
-  );
-
-  const state = EditorState.create({
-    schema: basicSchema,
-    doc: initialDoc,
-    plugins: [
-      ySyncPlugin(fragment as any, { mapping }),
-      ...(aw ? [yCursorPlugin(aw as any)] : []),
-      yUndoPlugin(),
-      history(),
-      keymap({
-        'Mod-z': undo,
-        'Mod-y': redo,
-        'Mod-Shift-z': redo,
-      }),
-      keymap(baseKeymap),
-    ],
-  });
-
-  const view = new EditorView(container, { state });
-  editorView.value = view;
-
-  onCleanup(() => {
-    view.destroy();
-    if (editorView.value === view) {
-      editorView.value = null;
-    }
-  });
-});
-
-watchEffect((onCleanup) => {
-  const doc = ydoc.value;
-  const disabled = awarenessDisabled.value;
-  const aw = disabled ? null : awareness.value;
-  const currentDocId = docId.value;
-  if (!doc || (!aw && !disabled)) {
-    return;
-  }
-
-  providerLog.value = [];
-  lastProviderSync.value = null;
-  providerStatus.value = 'disconnected';
-
-  const instance = new ProtocolProvider(doc, {
-    url: VITE_COLLAB_SERVER_URL,
-    docId: currentDocId,
-    roomId: 'collab-doc',
-    ...(aw ? { awareness: aw } : {}),
-    metadataCustomizer: (metadata) => ({
-      ...metadata,
-      version: Date.now().toString(),
-    }),
-  });
-
-  instance.on('status', (value) => {
-    providerStatus.value = value;
-    pushProviderLog(`状态：${value} · ${new Date().toLocaleTimeString()}`);
-  });
-  instance.on('sync', () => {
-    lastProviderSync.value = new Date().toISOString();
-    pushProviderLog(`SyncStep2 完成 · ${new Date().toLocaleTimeString()}`);
-  });
-  const detachSendSpy = attachSendSpy(instance);
-  if (!disabled) {
-    instance.on('awareness', (changes) => {
-      const touched = [
-        ...changes.added,
-        ...changes.updated,
-        ...changes.removed,
-      ];
-      pushProviderLog(
-        `Awareness: ${touched.length ? touched.join(', ') : 'none'
-        } · ${new Date().toLocaleTimeString()}`,
-      );
-    });
-  }
-  provider.value = instance;
-  refreshDocumentState();
-
-  onCleanup(() => {
-    detachSendSpy();
-    instance.destroy();
-    if (provider.value === instance) {
-      provider.value = null;
-    }
-  });
-});
-
-const switchDoc = () => {
-  if (inputDocId.value && inputDocId.value !== docId.value) {
-    docId.value = inputDocId.value;
-    refreshDocumentState();
-  }
-};
-
-onBeforeUnmount(() => {
-  provider.value?.destroy();
-  provider.value = null;
-  editorView.value?.destroy();
-  editorView.value = null;
-  if (statusInterval) {
-    clearInterval(statusInterval);
-    statusInterval = null;
-  }
-});
+const metadataFields = [
+  { key: 'roomId', description: '逻辑文档集合，用于 Topic 路由。' },
+  { key: 'docId', description: '具体 Y.Doc 标识。' },
+  { key: 'subdocId', description: '可选子树/分片。' },
+  { key: 'channel', description: 'doc / awareness / control。' },
+  { key: 'version', description: '单调递增版本，用于持久化排序。' },
+  { key: 'senderId', description: '客户端或服务节点 ID，用于去重。' },
+  { key: 'timestamp', description: '事件时间戳（毫秒）。' },
+];
 </script>

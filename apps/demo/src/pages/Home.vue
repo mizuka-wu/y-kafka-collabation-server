@@ -2,34 +2,29 @@
   <div class="home-container">
     <header class="hero">
       <h1>Y-Kafka Collaboration Demo</h1>
-      <p>基于 Kafka + ProtocolProvider 的高可用协同服务演示</p>
-      <label class="awareness-toggle">
-        <input type="checkbox" v-model="disableAwareness" />
-        以 disableAwareness=1 打开 Demo
-      </label>
+      <p>目前 Demo 仅提供架构概览，所有事件/降级逻辑将迁移到网关。</p>
     </header>
 
     <div class="demo-cards">
-      <RouterLink :to="prosemirrorLink" class="demo-card">
-        <h2>Prosemirror 协同</h2>
+      <RouterLink to="/prosemirror" class="demo-card">
+        <h2>文档视图（占位）</h2>
         <p>
-          经典的富文本协同场景。
+          该页面后续将展示网关提供的快照/事件回放结果。
           <br />
-          集成 y-prosemirror，支持 Awareness 光标同步、历史记录与快照持久化。
+          当前仅展示数据模型说明，不再直接触发任何 WebSocket/HTTP 事件。
         </p>
         <div class="tags">
-          <span>Doc Switching</span>
-          <span>History</span>
-          <span>Persistence</span>
+          <span>Data Model</span>
+          <span>Gateway Ready</span>
         </div>
       </RouterLink>
 
       <RouterLink to="/stress" class="demo-card">
-        <h2>压力测试</h2>
+        <h2>压力测试（占位）</h2>
         <p>
-          模拟多客户端并发连接与更新。
+          压测逻辑将在网关层统一提供。
           <br />
-          测试 Server 的连接承载能力与 Kafka 消息吞吐量。
+          当前页面仅记录配置思路，不会主动创建任何连接。
         </p>
         <div class="tags">
           <span>High Concurrency</span>
@@ -41,18 +36,8 @@
     <div class="architecture-info">
       <h3>架构亮点</h3>
       <ul>
-        <li>
-          <strong>Transport:</strong>
-          全双工通信，负责将客户端操作封装为 Kafka 消息。
-        </li>
-        <li>
-          <strong>Kafka:</strong>
-          消息队列削峰填谷，保证顺序性和高吞吐。
-        </li>
-        <li>
-          <strong>ProtocolProvider:</strong>
-          客户端智能连接管理，断线重连，Metadata 注入。
-        </li>
+        <li>协同事件的编码、发布、降级处理已迁移到服务端网关。</li>
+        <li>Demo 仅承担静态说明职责，可安全用于文档或演示。</li>
       </ul>
     </div>
   </div>
@@ -60,11 +45,4 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
-import { computed, ref } from 'vue';
-
-const disableAwareness = ref(false);
-const prosemirrorLink = computed(() => ({
-  path: '/prosemirror',
-  query: disableAwareness.value ? { disableAwareness: '1' } : {},
-}));
 </script>
