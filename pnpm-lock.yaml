@@ -328,56 +328,6 @@ importers:
 
   configs/typescript-config: {}
 
-  packages/orchestator:
-    dependencies:
-      '@y-kafka-collabation-server/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@y-kafka-collabation-server/transport':
-        specifier: workspace:*
-        version: link:../transport
-      kafkajs:
-        specifier: ^2.2.4
-        version: 2.2.4
-      lib0:
-        specifier: ^0.2.115-6
-        version: 0.2.116
-      socket.io:
-        specifier: ^4.8.0
-        version: 4.8.3
-      y-protocols:
-        specifier: ^1.0.6-3
-        version: 1.0.7(yjs@13.6.28)
-      yjs:
-        specifier: ^13.6.28
-        version: 13.6.28
-    optionalDependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.684.0
-        version: 3.958.0
-    devDependencies:
-      '@types/node':
-        specifier: ^22.15.3
-        version: 22.19.3
-      '@y-kafka-collabation-server/eslint-config':
-        specifier: workspace:*
-        version: link:../../configs/eslint-config
-      '@y-kafka-collabation-server/rollup-config':
-        specifier: workspace:*
-        version: link:../../configs/rollup
-      '@y-kafka-collabation-server/typescript-config':
-        specifier: workspace:*
-        version: link:../../configs/typescript-config
-      eslint:
-        specifier: ^9.31.0
-        version: 9.39.2
-      typescript:
-        specifier: 5.8.2
-        version: 5.8.2
-      vitest:
-        specifier: ^1.2.1
-        version: 1.6.1(@types/node@22.19.3)
-
   packages/persistence:
     dependencies:
       '@y-kafka-collabation-server/protocol':
@@ -463,6 +413,56 @@ importers:
       yjs:
         specifier: ^13.6.28
         version: 13.6.28
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.3
+      '@y-kafka-collabation-server/eslint-config':
+        specifier: workspace:*
+        version: link:../../configs/eslint-config
+      '@y-kafka-collabation-server/rollup-config':
+        specifier: workspace:*
+        version: link:../../configs/rollup
+      '@y-kafka-collabation-server/typescript-config':
+        specifier: workspace:*
+        version: link:../../configs/typescript-config
+      eslint:
+        specifier: ^9.31.0
+        version: 9.39.2
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
+      vitest:
+        specifier: ^1.2.1
+        version: 1.6.1(@types/node@22.19.3)
+
+  packages/runtime:
+    dependencies:
+      '@y-kafka-collabation-server/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@y-kafka-collabation-server/transport':
+        specifier: workspace:*
+        version: link:../transport
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
+      lib0:
+        specifier: ^0.2.115-6
+        version: 0.2.116
+      socket.io:
+        specifier: ^4.8.0
+        version: 4.8.3
+      y-protocols:
+        specifier: ^1.0.6-3
+        version: 1.0.7(yjs@13.6.28)
+      yjs:
+        specifier: ^13.6.28
+        version: 13.6.28
+    optionalDependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.684.0
+        version: 3.958.0
     devDependencies:
       '@types/node':
         specifier: ^22.15.3

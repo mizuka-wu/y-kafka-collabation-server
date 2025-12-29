@@ -1,11 +1,11 @@
-# @y-kafka-collabation-server/orchestrator
+# @y-kafka-collabation-server/runtime
 
-Orchestrator 包用于「编排」 protocol 与 transport：它以内建的 Socket.IO Server（或任意 WebSocket 服务器）为基础，把 Protocol 编解码、Kafka 生产/消费、RoomRegistry 路由、降级管线、权限钩子等职责组合成一个可插拔的协作入口。Socket.IO 自带的降级（WebSocket ⇄ HTTP 长轮询/JSONP）也由 orchestrator 统一承接：当客户端回落到 HTTP，请求仍通过同一 `io.engine` 管道进入 orchestrator，再根据 metadata 决定是否走 Kafka 或 HTTP fallback。
+Runtime 包用于「编排」 protocol 与 transport：它以内建的 Socket.IO Server（或任意 WebSocket 服务器）为基础，把 Protocol 编解码、Kafka 生产/消费、RoomRegistry 路由、降级管线、权限钩子等职责组合成一个可插拔的协作入口。Socket.IO 自带的降级（WebSocket ⇄ HTTP 长轮询/JSONP）也由 runtime 统一承接：当客户端回落到 HTTP，请求仍通过同一 `io.engine` 管道进入 runtime，再根据 metadata 决定是否走 Kafka 或 HTTP fallback。
 
 ## 职责定位
 
 ```text
-client ⇄ transport(Socket.IO) ⇄ orchestrator ⇄ Kafka/Protocol ⇄ persistence
+client ⇄ transport(Socket.IO) ⇄ runtime ⇄ Kafka/Protocol ⇄ persistence
 ```
 
 1. **接入层**：托管 Socket.IO server（或抽象的 `TransportAdapter`），处理 connect/message/disconnect 事件。
@@ -14,12 +14,12 @@ client ⇄ transport(Socket.IO) ⇄ orchestrator ⇄ Kafka/Protocol ⇄ persiste
 4. **RoomRegistry & Metadata**：在 handleConnection 时登记 `roomId/docId/subdocId`，统一补全 metadata（`senderId/version/timestamp` 等），保证 transport 层无状态。
 5. **降级/权限钩子**：在进入 Kafka 前执行 Authorization、降级策略（HTTP fallback、聚合/节流等），确保 socket server 只处理连接和事件转发。
 6. **扩展 API**：可对外暴露 `getDocumentState`、`publishUpdate` 等调试/降级接口，但核心职责是协调 protocol 与 transport，而非承载业务。
-7. **Socket.IO 降级路径**：Socket.IO 的 Engine.IO 层天然支持 WebSocket → HTTP 长轮询 → JSONP 逐级降级。Orchestrator 需要做的仅是：
+7. **Socket.IO 降级路径**：Socket.IO 的 Engine.IO 层天然支持 WebSocket → HTTP 长轮询 → JSONP 逐级降级。Runtime 需要做的仅是：
    1. 在 `io.on('connection')` 中无差别处理每个 `Socket`，无论它是 WebSocket 还是长轮询，均使用 `createBusSocketHandlers` 进行 `handleConnection`/`handleClientMessage`/`handleDisconnect`。
-   2. 当 transport 被降级时，Socket.IO 会把消息以 HTTP POST/GET 拉取的形式触发 `socket.on('protocol-message', ...)`，orchestrator 继续走 Kafka produce 流程；只要消息符合 socket.io 的降级协议就会被正确转发。
-   3. 若需要纯 HTTP fallback（不走 Socket.IO），则可通过 orchestrator 暴露 `GET /collab/doc/:docId`、`POST /collab/publish` 之类的接口：这些接口同样复用 protocol codec，将 HTTP 请求转换成 Kafka 事件，并在响应中返回聚合后的 payload。
+   2. 当 transport 被降级时，Socket.IO 会把消息以 HTTP POST/GET 拉取的形式触发 `socket.on('protocol-message', ...)`，runtime 继续走 Kafka produce 流程；只要消息符合 socket.io 的降级协议就会被正确转发。
+   3. 若需要纯 HTTP fallback（不走 Socket.IO），则可通过 runtime 暴露 `GET /collab/doc/:docId`、`POST /collab/publish` 之类的接口：这些接口同样复用 protocol codec，将 HTTP 请求转换成 Kafka 事件，并在响应中返回聚合后的 payload。
 
-因此，只要客户端遵循 Socket.IO 官方的降级协议，orchestrator 不需要额外分支即可处理请求；额外的 HTTP API 可被视作网关扩展。
+因此，只要客户端遵循 Socket.IO 官方的降级协议，runtime 不需要额外分支即可处理请求；额外的 HTTP API 可被视作网关扩展。
 
 ### 可选的对象存储支持
 
@@ -28,11 +28,11 @@ client ⇄ transport(Socket.IO) ⇄ orchestrator ⇄ Kafka/Protocol ⇄ persiste
 - **AWS S3**：通过 `@aws-sdk/client-s3` 实现 `putObject/getObject`。
 - **MinIO/OSS 等**：可引入 `minio` SDK 或其他自定义驱动。
 
-这些依赖被标记为 `optionalDependencies`，只有启用对象存储时才需要安装/配置，核心 orchestrator 逻辑不会强制加载。
+这些依赖被标记为 `optionalDependencies`，只有启用对象存储时才需要安装/配置，核心 runtime 逻辑不会强制加载。
 
 ## 目标
 
-基于 [y-websocket](https://github.com/yjs/y-websocket) 的协议思想，打造一套面向 Yjs 文档的同步层，并让 orchestrator 可以直接复用：
+基于 [y-websocket](https://github.com/yjs/y-websocket) 的协议思想，打造一套面向 Yjs 文档的同步层，并让 runtime 可以直接复用：
 
 1. **抽象出协议扇区**（连接管理、状态事件、同步/ack、Awareness 广播等），为多客户端同步提供统一 contract。
 2. **将协议层作为 Kafka 消息的生产者/消费者**，让所有文档更新都能通过 Kafka 传播到订阅的集群节点。
@@ -125,10 +125,10 @@ client ⇄ transport(Socket.IO) ⇄ orchestrator ⇄ Kafka/Protocol ⇄ persiste
 
 | 消息类型 | 处理入口 | 核心 API | 说明 |
 | --- | --- | --- | --- |
-| Sync | `syncProtocol.readSyncMessage` / `syncProtocol.writeSyncStep1` | `encoding.writeVarUint` / `encoding.toUint8Array` | 先写入消息类型 `0`，然后委托 syncProtocol 生成/解析 `SyncStep1/2` 的二进制 payload。|
-| Awareness | `awarenessProtocol.encodeAwarenessUpdate` / `applyAwarenessUpdate` | `encoding.writeVarUint8Array` | 将 awareness state 编码为 `Uint8Array`，并在接收端用 `applyAwarenessUpdate` 应用。|
-| Auth | `authProtocol.readAuthMessage` | 无需额外编码（由服务端生成），客户端仅需传入 `Y.doc` 与回调。| 仅在需要鉴权的环境使用，服务端可回复 messageAuth 消息。|
-| Query Awareness | 复用 Awareness 编码 | `awarenessProtocol.encodeAwarenessUpdate` | 用于服务器主动拉取当前 awareness，行为和 `messageAwareness` 一致但回复类型仍为 `1`。|
+| Sync | `syncProtocol.readSyncMessage` / `syncProtocol.writeSyncStep1` | `encoding.writeVarUint` / `encoding.toUint8Array` | 先写入消息类型 `0`，然后委托 syncProtocol 生成/解析 `SyncStep1/2` 的二进制 payload。 |
+| Awareness | `awarenessProtocol.encodeAwarenessUpdate` / `applyAwarenessUpdate` | `encoding.writeVarUint8Array` | 将 awareness state 编码为 `Uint8Array`，并在接收端用 `applyAwarenessUpdate` 应用。 |
+| Auth | `authProtocol.readAuthMessage` | 无需额外编码（由服务端生成），客户端仅需传入 `Y.doc` 与回调。 | 仅在需要鉴权的环境使用，服务端可回复 messageAuth 消息。 |
+| Query Awareness | 复用 Awareness 编码 | `awarenessProtocol.encodeAwarenessUpdate` | 用于服务器主动拉取当前 awareness，行为和 `messageAwareness` 一致但回复类型仍为 `1`。 |
 
 ```ts
 import * as encoding from 'lib0/encoding'
