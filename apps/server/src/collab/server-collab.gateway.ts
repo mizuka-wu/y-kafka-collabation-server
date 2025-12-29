@@ -149,6 +149,9 @@ export class ServerCollabGateway
       throw new Error('protocol-message missing docId');
     }
     const buffer = toUint8Array(message.payload);
+    this.logger.debug(
+      `protocol-message received doc=${docId} channel=${channel} initialRoom=${message.roomId ?? message.metadata?.roomId ?? 'n/a'} size=${buffer.byteLength}`,
+    );
 
     try {
       const { metadata: envelopeMeta, payload: decodedPayload } =
@@ -160,6 +163,9 @@ export class ServerCollabGateway
       if (!envelopeMeta.roomId) {
         envelopeMeta.roomId = message.roomId ?? 'default';
       }
+      this.logger.debug(
+        `Decoded envelope doc=${docId} room=${envelopeMeta.roomId} channel=${channel} payloadSize=${decodedPayload.byteLength}`,
+      );
       return this.collabService.publishUpdate({
         metadata: envelopeMeta,
         channel,
@@ -182,6 +188,9 @@ export class ServerCollabGateway
       docId,
       timestamp: message.metadata.timestamp ?? Date.now(),
     };
+    this.logger.debug(
+      `Fallback publish doc=${docId} room=${metadata.roomId} channel=${channel} payloadSize=${buffer.byteLength}`,
+    );
     return this.collabService.publishUpdate({
       metadata,
       channel,

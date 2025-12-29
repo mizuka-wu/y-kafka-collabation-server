@@ -1,9 +1,10 @@
-import { Socket } from 'socket.io';
+import type { Socket } from 'socket.io';
 import {
   BusClientMessage,
   CreateBusSocketHandlersDeps,
   RoomAssignment,
 } from './types';
+import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
 const textEncoder = new TextEncoder();
 
@@ -19,16 +20,16 @@ const toUint8Array = (payload: Uint8Array | Buffer | string): Uint8Array => {
 
 const resolveTopic = (
   channel: string | undefined,
-  roomId: string,
+  metadata: ProtocolMessageMetadata,
   resolver: CreateBusSocketHandlersDeps['topicResolver'],
 ): string => {
   if (channel === 'awareness') {
-    return resolver.resolveAwarenessTopic(roomId);
+    return resolver.resolveAwarenessTopic(metadata);
   }
   if (channel === 'control' && resolver.resolveControlTopic) {
-    return resolver.resolveControlTopic(roomId);
+    return resolver.resolveControlTopic(metadata);
   }
-  return resolver.resolveSyncTopic(roomId);
+  return resolver.resolveSyncTopic(metadata);
 };
 
 export const createBusSocketHandlers = (
@@ -52,11 +53,7 @@ export const createBusSocketHandlers = (
     async handleClientMessage(socket, message) {
       const metadata = message.metadata;
 
-      const topic = resolveTopic(
-        message.channel,
-        metadata.roomId as string,
-        topicResolver,
-      );
+      const topic = resolveTopic(message.channel, metadata, topicResolver);
       const payload = toUint8Array(message.payload);
       const envelope = protocolCodec.encodeKafkaEnvelope(payload, metadata);
       await kafkaProducer.produce({

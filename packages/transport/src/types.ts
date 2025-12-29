@@ -36,11 +36,12 @@ export interface KafkaProducer {
 }
 
 export interface TopicResolver {
-  resolveSyncTopic(roomId: string): string;
-  resolveAwarenessTopic(roomId: string): string;
-  resolveControlTopic?(roomId: string): string;
-  syncTopicPattern?: string;
-  awarenessTopicPattern?: string;
+  resolveSyncTopic(metadata: ProtocolMessageMetadata): string;
+  resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string;
+  resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
+  syncTopicPattern?: RegExp;
+  awarenessTopicPattern?: RegExp;
+  controlTopicPattern?: RegExp;
 }
 
 export interface ProtocolCodecAdapter {

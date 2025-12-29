@@ -16,7 +16,10 @@ import {
 import { Buffer } from 'buffer';
 
 import { CollabChannel } from './types';
-import { TemplateTopicResolver, TopicResolver } from '../kafka/topic-resolver';
+import {
+  TemplateTopicResolver,
+  TopicResolver,
+} from '@y-kafka-collabation-server/transport';
 import { AppConfigSnapshot } from '../config/configuration';
 import { OBJECT_STORAGE_CLIENT } from './object-storage.provider';
 
