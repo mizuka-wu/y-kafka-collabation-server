@@ -98,14 +98,57 @@ flowchart LR
 
 ## 5. 典型时序
 
-- **实时往返**：Client → Runtime → Kafka → Runtime → Client。  
-- **持久化写入**：Runtime 消费 doc channel → Persistence（MySQL/S3）。  
-- **初始化恢复**：Client 连接（version 缺省）→ Runtime 拉取 Persistence snapshot/history + Kafka offset → 返回给 Client → Client 应用后继续监听实时流。  
-- **下行广播（offset 更新）**：  
-  1. **ACK 链路**：客户端上行 update 后，Runtime 写入 Kafka，拿到 `(topic, partition, offset)` 并立即 ACK；客户端据此刷新本地 version/offset。  
-  2. **第三方广播**：其他客户端的 update 回到 Runtime 时，Runtime 将 payload + 最新 offset 广播给所有活跃连接；每个客户端应用 update 后同步更新本地 offset。
+### 5.1 实时往返（含 ACK / 第三方广播）
 
-> TODO：按上述场景补充 Mermaid sequenceDiagram（实时往返 / 持久化写入 / 初始化恢复）。
+```mermaid
+sequenceDiagram
+    participant ClientA
+    participant Runtime
+    participant Kafka
+    participant ClientB
+
+    ClientA->>Runtime: protocol-message (roomId/docId/subdocId)
+    Runtime->>Kafka: produce(metadata + payload)
+    Kafka-->>Runtime: ack(topic, partition, offset)
+    Runtime-->>ClientA: ACK + offset
+    Kafka-->>Runtime: consume(metadata + payload)
+    Runtime->>ClientB: broadcast via RoomRoadMap + offset
+```
+
+### 5.2 持久化写入
+
+```mermaid
+sequenceDiagram
+    participant Runtime
+    participant Kafka
+    participant Persistence
+    participant Storage as MySQL/S3
+
+    Kafka-->>Runtime: doc channel event
+    Runtime->>Persistence: persistUpdate(metadata, payload)
+    Persistence->>Storage: append history / snapshot
+    Persistence-->>Runtime: persistResult(version, storageLocation)
+```
+
+### 5.3 初始化恢复（version 缺省）
+
+```mermaid
+sequenceDiagram
+    participant Client as Client/Provider
+    participant Runtime
+    participant Persistence
+    participant Kafka
+
+    Client->>Runtime: sync request (version undefined)
+    Runtime->>Persistence: recoverSnapshot + exportHistory
+    Persistence-->>Runtime: snapshot(Base64) + updates(Base64[]) + latestVersion
+    Runtime->>Kafka: fetch tail since latestVersion
+    Kafka-->>Runtime: recent updates + offsets
+    Runtime-->>Client: snapshot + history + offsets
+    Client->>Client: apply snapshot/history, enter realtime flow
+```
+
+> 下行广播的两个步骤可直接参考 5.1：Runtime 在 ACK 阶段将 `(topic, partition, offset)` 返回发起方，在第三方广播阶段携带最新 offset 推送给 RoomRoadMap 中的其他连接。
 
 ## 6. 包架构与依赖层级
 
