@@ -1,154 +1,153 @@
 # 基于 Kafka 的协作数据模型
 
-本 README 汇总了当前仓库的包划分、历史 README 中的流程图以及最新的数据流设计，帮助理解「客户端 → Kafka → 持久化/广播」的端到端通路。详细代码示例可在各 package README 中查看。
-
-## 1. 总览：跨包数据流向图
+## 1. 端到端概览
 
 ```mermaid
 flowchart LR
     subgraph Client
         Provider[packages/provider\nProtocolProvider]
-        App[编辑器 / Demo]
+        Demo[apps/demo\n编辑器]
     end
-    subgraph Edge
-        Transport[packages/transport\nSocket.IO + Kafka bridge]
-        Runtime[packages/runtime\n事件编排]
+
+    subgraph Server
+        Runtime[packages/runtime\nSocket.IO + Kafka orchestrator\n(含 TopicResolver/RoomRoadMap)]
+        Transport[packages/transport\nTransport adapter]
     end
-    subgraph Core
-        Protocol[packages/protocol\nProtocolCodec]
-        Persistence[packages/persistence\nSnapshots + History]
+
+    subgraph Infra
         Kafka[(Kafka topics\nsync/awareness/control)]
+        Persistence[packages/persistence\nMySQL + S3]
     end
-    App -->|Y.Doc updates / awareness| Provider
-    Provider -->|encodeKafkaEnvelope\nws message| Transport
-    Transport -->|produce| Kafka
-    Kafka -->|consume| Transport
-    Transport -->|protocol-message\nsocket broadcast| Provider
-    Kafka --> Runtime --> Protocol
-    Protocol --> Persistence
-    Persistence -->|snapshot + history| Transport
-    Transport -->|HTTP 降级/回放| App
+
+    Demo -->|Yjs Sync/Awareness| Provider
+    Provider -->|ProtocolMessage| Runtime
+    Runtime -->|produce| Kafka
+    Kafka -->|consume| Runtime
+    Runtime -->|RoomRoadMap 广播| Provider
+    Runtime -->|doc channel 写入| Persistence
+    Persistence -->|snapshot + history| Runtime
+    Runtime -->|HTTP/Snapshot 回传| Provider
 ```
 
-* **Provider**：封装 `Y.Doc` 与 `ProtocolCodecContext`，对前端暴露与 y-websocket 一致的事件。
-* **Transport**：Socket.IO 服务器，将客户端消息变成 Kafka envelope，并在消费后根据 metadata 路由给 sockets。
-* **Runtime**：作为 protocol 与 transport 之间的胶水层，负责把 Socket.IO 事件编排到 Kafka/Protocol 流程。
-* **Protocol**：统一编解码（`encodeKafkaEnvelope`、`decodeMessage`）并生成 `SyncStep`、Awareness payload。
-* **Persistence**：把 doc channel 的事件写入 snapshot/history，供冷启动和 HTTP 降级回放。
+- **上行链路（Client → Server → Kafka）**：客户端生成 doc/awareness buffer，经 Runtime 编解码后写入 Kafka；写入成功即返回 `(topic, partition, offset)` 给发起客户端作为最新 version。
+- **下行链路（Server ← Kafka）**：Runtime 订阅 `sync/awareness` topic，消费后根据 `RoomRoadMap` 将消息广播给当前服务器上所有相关连接，保证 Yjs 状态一致。
+- **服务器 ↔ Persistence**：  
+  - 写入：Runtime 订阅 `sync` 消息，定期把增量合并为 Yjs 基线（含无 GC 的完整 `Y.Doc`），写入 MySQL，并将大快照同步到 S3。  
+  - 回读：客户端初始化时默认不带 version，Runtime 调用 Persistence 获取最近的 snapshot + history，再结合 Kafka tail 让客户端恢复最新状态。
 
-## 2. Package 速查
+## 2. 角色与职责
 
 | 包 | 角色 | 重点能力 |
 | --- | --- | --- |
-| `packages/protocol` | 协议层 | Yjs 消息编解码、Kafka envelope、metadata 模型。 |
-| `packages/provider` | 前端 Provider | WebsocketProvider 风格 API，自动处理 `sync/awareness/status` 事件。 |
-| `packages/transport` | Socket.IO ↔ Kafka | `createBusSocketHandlers`、`startKafkaConsumer`、`RoomRegistry`。 |
-| `packages/persistence` | 落盘 | `PersistenceCoordinator`、snapshot/history、对象存储挂载。 |
-| `packages/runtime` | 调度 | 将 transport 的广播 / Kafka 消费编排进 protocol、persistence、server。 |
-| `apps/server` | NestJS Demo | 暴露 HTTP API（snapshot/export/发布更新），同时演示降级路径。 |
-| `apps/demo` | 客户端演示 | Vue + ProtocolProvider，覆盖 doc/awareness 同步。 |
+| `packages/provider` | 客户端 Provider | 管理 `Y.Doc` & Awareness，暴露 Socket.IO/WebsocketProvider 风格 API。 |
+| `apps/demo` | 演示客户端 | 集成 Provider，展示文档/白板等协同场景。 |
+| `packages/runtime` | 服务端 Runtime（核心 orchestrator） | 内建 Socket.IO server，串接 protocol、Kafka、TopicResolver、RoomRoadMap、Persistence hooks。 |
+| `packages/transport` | 传输适配层 | 提供 `createBusSocketHandlers`、`startKafkaConsumer`，供 runtime 注入或复用。 |
+| `packages/protocol` | 协议核心 | 统一 `ProtocolMessage` metadata、Yjs 编解码、Kafka envelope。 |
+| `packages/persistence` | 持久化服务 | Snapshot/history、对象存储挂载，对 runtime/server 暴露恢复 API。 |
+| `apps/server` | NestJS Demo | 将 runtime 打包成 Nest 模块，附带 HTTP Snapshot/Publish 等调试接口。 |
 
-## 3. 事件模型（ProtocolMessage）
+## 3. 数据流细化
 
-系统只认可「协议事件」这一种载体。任何来自客户端、持久化或调度器的输入都需要被序列化为统一的 `ProtocolMessage`：
+1. **客户端 → 服务器**  
+   - Provider 发送 doc/awareness buffer。  
+   - Runtime 在握手阶段补 `roomId/docId/senderId/channel` 等 metadata。
+2. **服务器 → Kafka**  
+   - 调用 `protocol.encodeKafkaEnvelope(metadata, payload)`，并通过 TopicResolver 得到目标 topic。  
+   - Kafka key 固定为 `docId`，保证 partition 内顺序。
+3. **Kafka → 服务器**  
+   - Runtime 消费 `sync/awareness` topic，解析出 metadata。  
+   - 通过 `RoomRoadMap(roomId, docId, subdocId)` 查询本机需要广播的 Socket/HTTP 连接，再推送协议事件。
+4. **服务器 → Persistence**  
+   - `channel === 'doc'` 的消息写入 `PersistenceCoordinator`：存增量、刷新 snapshot，超大 payload 上传 S3。
+5. **服务器 ← Persistence（客户端初始化）**  
+   - 客户端以 `version` 缺省（或 `undefined`）发起同步。  
+   - Runtime 请求 `recoverSnapshot` + `exportHistory`，返回 Base64 snapshot + updates，并告知补齐的 Kafka offset。  
+   - 客户端应用后进入实时链路，继续消耗 Kafka tail。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `roomId` | `string` | 逻辑文档集合，同一 room 共享 topic。 |
-| `docId` | `string` | 具体 Y.Doc 或聚合子文档的唯一标识。 |
-| `subdocId?` | `string` | 可选，描述子树/分片。 |
-| `channel` | `'doc' \| 'awareness' \| 'control'` | 区分增量同步、在线状态与控制命令。 |
-| `version` | `string \| number` | 单调递增，用于持久化排序与幂等。 |
-| `senderId` | `string` | 客户端/服务节点的实例 ID，消费端根据它跳过自回放。 |
-| `timestamp` | `number` | 事件生成时间（毫秒）。 |
-| `payload` | `Uint8Array` | 具体的 Yjs update / awareness diff。 |
+## 4. 基础概念与运行时设施
 
-所有派生概念都建立在这些字段之上：Kafka topic 通过 `roomId/channel` 推导，聚合策略依赖 `docId/subdocId`，权限控制依赖 `senderId/docId`。
+- **Topic 分类（默认命名）**  
+  - `sync-{roomId}`：文档增量，唯一会写入 Persistence。  
+  - `awareness-{roomId}`：短生命周期状态。  
+  - `control-{roomId}`：控制命令，可扩展，例如强制同步、版本校验。
+- **关键字段**  
+  - `roomId`：协作房间/租户标识，与 topic 强绑定。  
+  - `docId`：单个文档或聚合文档 ID，用于 Kafka key。  
+  - `subdocId?`：可选子文档 ID，支持分片广播。  
+  - `channel`：`'doc' | 'awareness' | 'control'`。  
+  - `payload`：`Uint8Array`（Yjs SyncStep/Awareness diff/控制消息）。
+- **ProtocolMessage**：唯一的事件载体，包含 `roomId/docId/subdocId/channel/version/senderId/timestamp/payload`，所有组件以此为契约。
+- **运行时设施**  
+  - `RoomRoadMap`：Runtime 暴露的可插拔接口，记录 `(roomId, docId, subdocId) → sockets/HTTP` 映射，用于将 Kafka 消费结果映射到当前服务器连接；默认是内存 Map，可自行实现 Redis/多实例版本并注入 runtime。  
+  - `TopicResolver`：一个可传入的（async）函数/接口，输入 `metadata`，输出标准 topic 字符串。Runtime 默认实现只是字符串拼接；如需多租户、哈希分片或跨集群路由，可替换该函数，无需修改其他包。
 
-## 4. 端到端转换规则
+### 版本与分片策略
 
-### 4.1 Socket.IO / HTTP → Kafka
+1. **默认方案：version = Kafka offset**  
+   - `docId` 作为 Kafka key，所有消息落在固定 partition。  
+   - Runtime 写入成功后拿到 `(topic, partition, offset)`，立即经 Socket.IO ACK 给发起客户端；客户端记录最新 offset 作为 version。  
+   - Persistence 在 snapshot/update_history 中记录“覆盖到的 offset”，应对 Kafka retention。
+2. **扩容方案：虚拟槽位 / 一致性哈希**  
+   - `docId` 先映射到 slot（如 1024 个虚拟节点），slot 再映射到物理 partition。  
+   - TopicResolver 在生成 topic 时附带 slot 版本，扩容时只需迁移少量 slot。  
+   - 客户端 version 仍等价于 offset，不感知 slot 迁移。
+3. **回退方案：逻辑自增 version**  
+   - 若必须用全局自增序列（例如数据库强一致），可以在 Persistence 或 runtime 层生成自增 version，再写入 Kafka。  
+   - 需要额外维护 `version → payload` 的映射，牺牲部分无状态特性，但扩容最灵活。
 
-1. 客户端提交原始 Yjs buffer（SyncStep/Awareness diff）。  
-2. Transport 在握手阶段补全 `roomId`、`docId`、`senderId`，将 Buffer 转 `Uint8Array`。  
-3. 调用 `protocol.encodeKafkaEnvelope(metadata, payload)` 封包，Kafka key 取 `docId` 以保证顺序。  
-4. `channel` 决定 topic：`doc` → `sync-{roomId}`，`awareness` → `awareness-{roomId}`，`control` → `control-{roomId}` 或自定义策略。  
+## 5. 典型时序
 
-### 4.2 Kafka → Socket.IO / HTTP
+- **实时往返**：Client → Runtime → Kafka → Runtime → Client。  
+- **持久化写入**：Runtime 消费 doc channel → Persistence（MySQL/S3）。  
+- **初始化恢复**：Client 连接（version 缺省）→ Runtime 拉取 Persistence snapshot/history + Kafka offset → 返回给 Client → Client 应用后继续监听实时流。  
+- **下行广播（offset 更新）**：  
+  1. **ACK 链路**：客户端上行 update 后，Runtime 写入 Kafka，拿到 `(topic, partition, offset)` 并立即 ACK；客户端据此刷新本地 version/offset。  
+  2. **第三方广播**：其他客户端的 update 回到 Runtime 时，Runtime 将 payload + 最新 offset 广播给所有活跃连接；每个客户端应用 update 后同步更新本地 offset。
 
-1. `startKafkaConsumer` 解出 `metadata/payload`。  
-2. `RoomRegistry` 根据 `roomId/docId/subdocId` 查询活跃连接或 HTTP 订阅者。  
-3. `senderId` 用于跳过自回放。  
-4. 广播给 Socket.IO 客户端；若降级为 HTTP，则聚合多个 payload（见 4.4）一次性返回。  
+> TODO：按上述场景补充 Mermaid sequenceDiagram（实时往返 / 持久化写入 / 初始化恢复）。
 
-### 4.3 Kafka → Persistence
-
-1. 仅 `channel === 'doc'` 进入 `PersistenceCoordinator`。  
-2. `version` 作为主排序键：快照写入 `document_snapshots`，增量写入 `update_history`。  
-3. `storageLocation` 可指向对象存储，超过内存阈值时只保存引用。  
-
-### 4.4 聚合 / 降级 / 控制面
-
-* **聚合准则**：相同 `(docId, subdocId, channel)` 的连续消息可用 `rys` 合并，减少广播。  
-* **HTTP 降级**：读取流程 = Snapshot (`Base64`) + History (`Base64[]`) + Kafka Tail (`Uint8Array[]`)；写入流程直接调用 `POST /collab/publish` 产出 Kafka 消息。  
-* **控制面**：`channel === 'control'` 的 payload 按 `{ type, params }` schema 解析，可触发强制同步/重新验证。  
-
-## 5. 典型时序（取自历史 README 并结合现状）
+## 6. 包架构与依赖层级
 
 ```mermaid
-sequenceDiagram
-    participant Client as Client / ProtocolProvider
-    participant Transport as Socket.IO + Runtime
-    participant Kafka as Kafka Topics
-    participant Persistence as PersistenceCoordinator
+flowchart TB
+    subgraph L4[应用层]
+        Demo[apps/demo\nClient Demo] --> ProviderPkg
+        ServerApp[apps/server\nNestJS demo] --> RuntimePkg
+    end
 
-    Client->>Transport: emit protocol-message (room/doc/subdoc)
-    Transport->>Kafka: encodeKafkaEnvelope(metadata+payload)
-    Kafka-->>Transport: eachMessage + decodeKafkaEnvelope
-    Transport->>Client: broadcast metadata/payload
-    Kafka-->>Persistence: doc channel events
-    Persistence-->>Transport: snapshot + history (HTTP 降级时)
+    subgraph L3[服务编排层]
+        RuntimePkg["packages/runtime\nSocket.IO + Kafka orchestrator\n(含 RoomRoadMap/TopicResolver)"]
+    end
+
+    subgraph L2[服务组件层]
+        TransportPkg["packages/transport\nTransport adapter"]
+        PersistencePkg["packages/persistence\nSnapshot/History service"]
+    end
+
+    subgraph L1[协议核心]
+        ProtocolPkg["packages/protocol\nProtocolMessage & Codec"]
+    end
+
+    RuntimePkg --> TransportPkg
+    RuntimePkg --> PersistencePkg
+    ProviderPkg --> ProtocolPkg
+    TransportPkg --> ProtocolPkg
+    PersistencePkg --> ProtocolPkg
+    RuntimePkg -.-> Kafka[(Kafka topics by roomId/docId)]
+    PersistencePkg -.-> Storage[(MySQL / S3)]
+    ServerApp -.-> RuntimePkg
 ```
 
-### HTTP Snapshot 请求
+> Protocol 是所有包的共同契约；Runtime 组合 Transport + Persistence + RoomRoadMap/TopicResolver，并对接 Kafka/对象存储；apps/server 只是将 runtime 嵌入 NestJS；apps/demo 仅依赖 Provider，经 Socket.IO 直连 Runtime。
 
-```text
-HTTP GET /collab/doc/:docId
-  → PersistenceCoordinator.recoverSnapshot(docId)
-  → exportHistory(docId, sinceVersion)
-  → snapshot(Base64) + updates(Base64[])
-  → 客户端重建本地 Y.Doc
-```
+## 7. 调试与扩展提示
 
-## 6. Kafka 分区与扩展能力
+1. **上行链路**：确保 Provider 补齐 `roomId/docId/subdocId/channel`，Runtime 日志应打印 metadata，便于追踪。  
+2. **Kafka 消费**：关注 consumer lag、TopicResolver 输出；若 ack 版本与客户端不一致，优先检查 partition key 是否固定为 `docId`。  
+3. **RoomRoadMap 健康**：Runtime 在 connect/disconnect 时应正确登记/清理映射；如需分布式广播，可实现 Redis 版本并注入。  
+4. **Persistence 恢复**：`recoverSnapshot + exportHistory` 返回的 version/offset 要与客户端上报的 lastVersion 对齐，否则需要回退到 snapshot 全量恢复。  
+5. **HTTP 降级**：Runtime 可复用 Socket.IO 的 Engine.IO 降级；若完全走 HTTP fallback，可直接调用 Persistence/Runtime 暴露的 Snapshot/Publish 接口。  
+6. **扩展点**：TopicResolver（多租户/哈希）、RoomRoadMap（Redis/多实例）、对象存储适配、Authorization Hook、控制面命令（`control-{roomId}`）等均可通过 Fork + 注入自定义实现完成。
 
-| 项目 | 说明 |
-| --- | --- |
-| 主题命名 | 默认 `sync-{roomId}` / `awareness-{roomId}` / `control-{roomId}`，可通过 `TopicResolver` 拼接租户或哈希。 |
-| 分区策略 | Producer 使用 `docId` 作为 key，Kafka `LegacyPartitioner` 依据 hash 分配 partition。 |
-| consumer group | Transport / Persistence 可共享 group，实现多实例水平扩展。 |
-| 进阶策略 | 可在 `TopicResolver` 中引入 `roomId` hash，将不同 room 映射到不同 topic 或集群。 |
-
-## 7. 开发者入门与调试清单
-
-1. `pnpm install`。  
-2. 准备 Kafka（`sync-*`、`awareness-*`、可选 `control-*`）与数据库连接。  
-3. 启动：  
-   * `pnpm --filter @y-kafka-collabation-server/transport dev`  
-   * `pnpm --filter @y-kafka-collabation-server/persistence dev`  
-   * `pnpm --filter @y-kafka-collabation-server/server dev` 查看 Swagger/HTTP 降级。  
-4. 调试要点：  
-   * 检查 Kafka 是否有消息、consumer 是否在拉取、`RoomRegistry` 是否登记 socket。  
-   * Metadata mismatch? 在 transport/consumer 日志中打印 `roomId/docId/subdocId/channel`。  
-   * Persistence restore? `recoverSnapshot` + `exportHistory` 应返回匹配的 version。  
-   * HTTP 降级? 通过 `rys` 聚合 Kafka tail，再封成 `protocol-message` 返回。  
-
-## 8. 扩展点
-
-1. **TopicResolver**：按租户或分片生成 topic 模板。  
-2. **RoomRegistry**：可替换为 Redis 等分布式实现。  
-3. **ObjectStorageClient**：兼容本地、S3、OSS 的 `putObject/getObject`。  
-4. **Authorization Hook**：在进入 Kafka 之前校验 `(senderId, docId)`。  
-5. **控制通道**：实现 `topicResolver.resolveControlTopic`，组合 runtime 下发 snapshot/revalidate 命令。  
-
-以上描述构成了未来重构的唯一约束：只要遵循事件模型与转码规则，就可以自由替换通信层或拆分包。
+---
