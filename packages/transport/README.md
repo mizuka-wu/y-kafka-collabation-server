@@ -5,16 +5,16 @@
 1. **接收 Socket.IO 上行消息 → 写入 Kafka**：把 Provider 发送的 `ProtocolMessage`（payload + metadata）交给 `TopicResolver` 选 topic，再通过 `@y-kafka-collabation-server/protocol` 的信封编码写入 Kafka。
 2. **消费 Kafka → 广播给当前实例的 sockets**：订阅 `sync/awareness/(可选 control)` topic，解包 metadata，利用 Runtime 注入的 `RoomRegistry` 找到 sockets 并透传给 Provider。
 
-> 上层 Runtime 负责鉴权、TopicResolver 实现、RoomRegistry 实现、Kafka 客户端实例等。transport 只提供需要复用的适配代码，确保与根 README 描述的“客户端 ↔ Runtime ↔ Kafka”流程一致。
+> 上层 Runtime 负责持久化、TopicResolver 实现、RoomRegistry 实现、Kafka 客户端实例等。transport 只提供需要复用的适配代码，确保与根 README 描述的“客户端 ↔ Runtime ↔ Kafka”流程一致。
 
 ---
 
 ## 职责对齐
 
-| 链路 | transport 提供的内容 | 依赖 |
+| 链路 | transport 实际行为 | 依赖 |
 | --- | --- | --- |
-| 客户端 → Kafka | `createBusSocketHandlers().handleClientMessage`：解析 `BusClientMessage`、补齐 metadata、调用 `protocolCodec.encodeKafkaEnvelope`、交给 `kafkaProducer.produce` | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
-| Kafka → 客户端 | `startKafkaConsumer`：订阅 topic、`protocolCodec.decodeKafkaEnvelope`、按 `roomId/docId/subdocId` 在 `RoomRegistry` 查找 sockets 并 `socket.emit(onMessageEvent, {...})` | `KafkaConsumer`、`RoomRegistry`、`ProtocolCodecAdapter` |
+| 客户端 → Kafka | `createBusSocketHandlers().handleClientMessage` 解析 `BusClientMessage`，确认 metadata（room/doc/subdoc/channel 等）与 Runtime 预期一致，然后把 payload + metadata 封装成 Kafka envelope 并 produce；同时依赖 `TopicResolver` 决定最终 topic。 | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
+| Kafka → 客户端 | `startKafkaConsumer` 读取 Kafka record，解包 envelope 得到 metadata + payload，根据 metadata 在 `RoomRegistry` 找 sockets，并组装成客户端期望的 `protocol-message`（包含 topic/partition/offset/metadata/payload）回推。 | `KafkaConsumer`、`RoomRegistry`、`ProtocolCodecAdapter` |
 
 ## 目录概览
 
@@ -54,7 +54,7 @@ io.on('connection', (socket) => {
 
 要点：
 
-- `message.metadata` 必须至少包含 `roomId/docId`；`channel` 默认为 `'doc'`，可显式传 `'awareness' | 'control'`。
+- `message.metadata` 会由 transport 读取与校验（至少 `roomId/docId`）。若缺失，Runtime 应在调用前补齐或直接拒绝该消息。
 - `topicResolver` 只需实现 `resolveSyncTopic` / `resolveAwarenessTopic`（以及可选的 `resolveControlTopic`）；transport 不关心 topic 具体命名。
 - transport 不做鉴权/速率控制，需要的话请在调用 `handleClientMessage` 前处理。
 
