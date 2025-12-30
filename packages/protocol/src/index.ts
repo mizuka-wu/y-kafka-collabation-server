@@ -113,7 +113,7 @@ export const encodePermissionDenied = (reason: string): Uint8Array => {
 
 /**
  * 将 payload + metadata 封装为 Kafka 可落盘的结构:
- * [metadataLength:4 little endian][metadataBytes][payloadBytes]
+ * [messageType:1][metadataLength:4 little endian][metadataBytes][payloadBytes(without type)]
  */
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -122,17 +122,25 @@ export const encodeKafkaEnvelope = (
   payload: Uint8Array,
   metadata: ProtocolMessageMetadata,
 ): Uint8Array => {
+  if (payload.length === 0) {
+    throw new Error('Kafka envelope payload cannot be empty');
+  }
   const metadataJson = JSON.stringify(metadata);
   const metadataBytes = textEncoder.encode(metadataJson);
-  const envelope = new Uint8Array(4 + metadataBytes.length + payload.length);
+  const messageType = payload[0]!;
+  const payloadBody = payload.subarray(1);
+  const envelope = new Uint8Array(
+    1 + 4 + metadataBytes.length + payloadBody.length,
+  );
   const view = new DataView(
     envelope.buffer,
     envelope.byteOffset,
     envelope.byteLength,
   );
-  view.setUint32(0, metadataBytes.length, true);
-  envelope.set(metadataBytes, 4);
-  envelope.set(payload, 4 + metadataBytes.length);
+  envelope[0] = messageType;
+  view.setUint32(1, metadataBytes.length, true);
+  envelope.set(metadataBytes, 5);
+  envelope.set(payloadBody, 5 + metadataBytes.length);
   return envelope;
 };
 
@@ -141,8 +149,12 @@ export const encodeKafkaEnvelope = (
  */
 export const decodeKafkaEnvelope = (
   buffer: Uint8Array,
-): { metadata: ProtocolMessageMetadata; payload: Uint8Array } => {
-  if (buffer.length < 4) {
+): {
+  metadata: ProtocolMessageMetadata;
+  payload: Uint8Array;
+  messageType: ProtocolMessageType;
+} => {
+  if (buffer.length < 5) {
     throw new Error('Kafka envelope too short');
   }
   const view = new DataView(
@@ -150,19 +162,50 @@ export const decodeKafkaEnvelope = (
     buffer.byteOffset,
     buffer.byteLength,
   );
-  const metadataLength = view.getUint32(0, true);
-  const metadataStart = 4;
+  const messageType = buffer[0] as ProtocolMessageType;
+  const metadataLength = view.getUint32(1, true);
+  const metadataStart = 5;
   const metadataEnd = metadataStart + metadataLength;
   if (buffer.length < metadataEnd) {
     throw new Error('Kafka envelope metadata length mismatch');
   }
   const metadataBytes = buffer.subarray(metadataStart, metadataEnd);
-  const payload = buffer.subarray(metadataEnd);
+  const payloadBody = buffer.subarray(metadataEnd);
+  const payload = new Uint8Array(1 + payloadBody.length);
+  payload[0] = messageType;
+  payload.set(payloadBody, 1);
   const metadata = JSON.parse(textDecoder.decode(metadataBytes));
   return {
     metadata,
     payload,
+    messageType,
   };
+};
+
+/**
+ * 将 y-websocket 二进制 payload 与 metadata 一起封装，直接用于 Kafka produce。
+ */
+export const encodeKafkaProtocolMessage = (
+  message: Uint8Array,
+  metadata: ProtocolMessageMetadata,
+): Uint8Array => encodeKafkaEnvelope(message, metadata);
+
+/**
+ * 从 Kafka 消息中解出 metadata 与 y-websocket payload，并对 payload 执行 decodeMessage。
+ * 返回的 reply（例如 SyncStep2）可再次通过 encodeKafkaProtocolMessage 发送给 Kafka。
+ */
+export const decodeKafkaProtocolMessage = (
+  context: ProtocolCodecContext,
+  buffer: Uint8Array,
+  emitSynced = false,
+): {
+  metadata: ProtocolMessageMetadata;
+  reply: Uint8Array | null;
+  messageType: ProtocolMessageType;
+} => {
+  const { metadata, payload, messageType } = decodeKafkaEnvelope(buffer);
+  const reply = decodeMessage(context, payload, emitSynced);
+  return { metadata, reply, messageType };
 };
 
 /**

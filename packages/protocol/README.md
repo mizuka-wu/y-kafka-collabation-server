@@ -130,25 +130,51 @@ const decodeMessage = (buf: Uint8Array) => {
 示例：
 
 ```ts
-import { ProtocolCodecContext, encodeSyncStep1 } from './protocolMessageCodec'
+import {
+  ProtocolCodecContext,
+  encodeKafkaProtocolMessage,
+  decodeKafkaProtocolMessage,
+  encodeSyncStep1,
+} from '@y-kafka-collabation-server/protocol';
 
-const providerContext: ProtocolCodecContext = {
+const context: ProtocolCodecContext = {
   doc,
   awareness,
   synced: false,
-  setSynced: (value) => { synced = value },
-  permissionDeniedHandler: (reason) => console.warn('auth failed', reason)
-}
+  setSynced: (value) => {
+    synced = value;
+  },
+};
 
-ws.onmessage = (event) => {
-  const reply = decodeMessage(providerContext, new Uint8Array(event.data), true)
-  if (reply) {
-    ws.send(reply)
-  }
-}
+// send SyncStep1 via Kafka
+const syncPayload = encodeSyncStep1(doc);
+const envelope = encodeKafkaProtocolMessage(syncPayload, {
+  roomId,
+  docId,
+  senderId,
+});
+await kafkaProducer.produce({ topic, messages: [{ value: envelope }] });
 
-const syncRequest = encodeSyncStep1(doc)
-ws.send(syncRequest)
+// consume from Kafka
+kafkaConsumer.run({
+  eachMessage: async ({ message }) => {
+    const decoded = decodeKafkaProtocolMessage(
+      context,
+      new Uint8Array(message.value!),
+      true,
+    );
+    if (decoded.reply) {
+      await kafkaProducer.produce({
+        topic,
+        messages: [
+          {
+            value: encodeKafkaProtocolMessage(decoded.reply, decoded.metadata),
+          },
+        ],
+      });
+    }
+  },
+});
 ```
 
 ## 持久化与数据库
@@ -194,20 +220,23 @@ const reply = decodeMessage(context, incomingPayload, true);
 
 ### Kafka Envelope
 
-```ts
-const envelope = encodeKafkaEnvelope(payload, metadata);
-const { payload, metadata } = decodeKafkaEnvelope(envelope);
+`encodeKafkaEnvelope`/`decodeKafkaEnvelope` 采用统一的二进制布局：
+
+```text
+[messageType:1][metadataLength:4 little endian][metadataBytes (JSON)][payloadBytes (不含 messageType)]
 ```
 
-- `encodeKafkaEnvelope`：把 metadata 序列化为 JSON，再拼接 payload，前 5 字节包含格式 + metadata 长度，方便 Kafka 消息直接落盘。
-- `decodeKafkaEnvelope`：校验长度、格式，解析 metadata 与原始 Yjs 二进制，可抛出错误供消费层记录。
+- `encodeKafkaEnvelope`：抽取 y-websocket payload 首字节作为 messageType，其余字节视为 body，与 metadata 按上述格式拼接进 Kafka message。
+- `decodeKafkaEnvelope`：按格式还原 messageType、metadata（JSON 解码）与 payload（自动补回 messageType，便于直接传给 `decodeMessage`）。
+- `encodeKafkaProtocolMessage`：先用 `encodeSync*`/`encodeAwareness` 生成 y-websocket 二进制，再与 metadata 一起打包，直接交给 Kafka producer。
+- `decodeKafkaProtocolMessage`：从 Kafka record 中解析出 metadata 与 payload，并在内部执行 `decodeMessage`（返回 SyncStep2 等 reply）；返回值同时包含 metadata，便于上游根据 room/doc 继续路由。
 - `createMetadata`：辅助生成包含 `roomId/docId/subdocId/senderId/timestamp` 的 metadata，保持 provider 与 transport 之间一致性。
 
 ## 集成指南
 
 1. 在 Kafka 生产者/Socket 处理链中注入 `ProtocolCodecAdapter`（`encodeKafkaEnvelope`/`decodeKafkaEnvelope`），以便统一落盘与恢复。
 2. 上下游使用 `ProtocolCodecContext`：`doc`/`awareness` 实例需由 `@y/y` 与 `@y/protocols/awareness` 创建，`setSynced` 由调用方实现以便 `sync` 完成后触发 `synced` 事件。
-3. 如果要复用 `protocol` package 提供的 codec，可以直接 `import { decodeMessage, encodeAwareness } from '@y-kafka-collabation-server/protocol';` 结合 NestJS provider 注入。
+3. Kafka produce/consume 链路推荐直接使用 `encodeKafkaProtocolMessage` 与 `decodeKafkaProtocolMessage`：前者负责把任意 y-websocket payload（Sync/Awareness/Auth）连同 metadata 打包成单条 Kafka record；后者在 consumer 侧解析 metadata 并立即对 payload 运行 `decodeMessage`，返回的 reply 可按需再次通过 `encodeKafkaProtocolMessage` 写回，完成“消费 -> 应用 -> 反馈”闭环。
 
 ## 运行与测试
 
