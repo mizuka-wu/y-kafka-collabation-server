@@ -1,6 +1,5 @@
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
-import type * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync.js';
 import * as authProtocol from 'y-protocols/auth.js';
 import * as awarenessProtocol from 'y-protocols/awareness.js';
@@ -14,6 +13,7 @@ import { syncHandler } from './handlers/sync';
 import { awarenessHandler } from './handlers/awareness';
 import { authHandler } from './handlers/auth';
 import { queryAwarenessHandler } from './handlers/queryAwareness';
+import type * as Y from 'yjs';
 
 const messageHandlers: Record<ProtocolMessageType, ProtocolMessageHandler> = {
   [ProtocolMessageType.Sync]: syncHandler,

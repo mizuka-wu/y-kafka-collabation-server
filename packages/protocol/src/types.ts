@@ -23,7 +23,6 @@ export interface ProtocolMessageMetadata {
   senderId?: string;
   version?: string;
   timestamp?: number;
-  note?: string;
 }
 
 /**

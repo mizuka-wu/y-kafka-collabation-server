@@ -10,7 +10,7 @@ flowchart LR
     end
 
     subgraph Server
-        Runtime[packages/runtime\nSocket.IO + Kafka orchestrator\n(含 TopicResolver/RoomRoadMap)]
+        Runtime["packages/runtime\nSocket.IO + Kafka orchestrator\n(含 TopicResolver/RoomRoadMap)"]
         Transport[packages/transport\nTransport adapter]
     end
 

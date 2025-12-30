@@ -1,30 +1,11 @@
-# @y-kafka-collabation-server 协议层
+# @y-kafka-collabation-server/protocol
 
-## 目标
+本包定义了主 README 中提到的唯一事件载体 **ProtocolMessage** 及其编解码流程：Provider、Runtime、Transport、Persistence 都通过它共享同一 metadata 与 Kafka envelope 约定。目标与职责：
 
-基于 [y-websocket](https://github.com/yjs/y-websocket) 的协议思想，打造一套面向 Yjs 文档的同步层：
-
-1. **抽象出协议扇区**（连接管理、状态事件、同步/ack、Awareness 广播等），为多客户端同步提供统一 contract。
-2. **将协议层作为 Kafka 消息的生产者/消费者**，让所有文档更新都能通过 Kafka 传播到订阅的集群节点。
-3. **为持久化提供 Hook**，将最终的状态写入数据库（例如 Redis、PostgreSQL）以便恢复和历史审计。
-
-## y-websocket 核心契约
-
-协议层需要复刻 y-websocket 的以下关键组件：
-
-| 组件 | 描述 | 实现要点 |
-| --- | --- | --- |
-| WebsocketProvider | 客户端端点，负责连接、断线重试、send/receive 逻辑 | 统一连接状态 `status` 事件、`connect()`/`disconnect()`、`sync`/`awareness` 消息分流 |
-| wsOpts | 可配置项，如 `params`、`WebsocketPolyfill`、`maxBackoffTime` | 改为 Kafka 相关参数（topic、group、重试策略等） |
-| Event Hooks | `status`, `sync`, `connection-close`, `connection-error` | 保留，适配 Kafka 流的生命周期事件 |
-| Awareness | y-protocols 的 Awareness，用于广播成员状态 | 通过 Kafka topic 统一广播 awareness 消息并在本地缓存 |
-
-## 协议层构建块（Protocol Layer）
-
-1. **连接层**：维护一个抽象 `ProtocolConnection`（类似 Websocket），负责 subscribe/consume Kafka topic（例如 `yjs-doc-{room}`）、处理回退逻辑与延迟补偿。
-2. **消息层**：解析 Yjs Update 消息与 Awareness 消息，按 y-websocket 格式封包，并提供 `onSync`, `onAwareness` 等事件。
-3. **状态层**：维护本地 `Y.Doc`，用于应用 update、生成 update 后发送给 Kafka，及定期和 Kafka 的 `synced` 状态同步。
-4. **事件层**：暴露 `status` / `connection-close` / `error` 等事件，用于上层 UI 或服务组件做健康检测。
+1. 抽象 `roomId/docId/subdocId/channel/version/senderId/timestamp/payload` 的 metadata，并提供 `encodeKafkaEnvelope`/`decodeKafkaEnvelope` 以便任意进程落盘/回放。
+2. 提供 Yjs Sync/Awareness/Control 的二进制编解码（与 y-websocket 契约一致），供 Provider（上行）、Runtime（下行）和 Persistence（回放）直接复用。
+3. 支撑 Runtime 中的 TopicResolver 与 RoomRoadMap：Protocol 负责定义 metadata 字段，真正的 topic 选择与连接路由由 Runtime 实现，不在本包内持有状态。
+4. 为 Persistence/无状态服务器提供一致的 version/offset 载体，使主 README 中的“上行 ACK / 下行广播 / 初始化恢复”链路可以依靠 metadata 完成。
 
 ## 与 Kafka 交互的契约
 
@@ -95,10 +76,10 @@
 
 | 消息类型 | 处理入口 | 核心 API | 说明 |
 | --- | --- | --- | --- |
-| Sync | `syncProtocol.readSyncMessage` / `syncProtocol.writeSyncStep1` | `encoding.writeVarUint` / `encoding.toUint8Array` | 先写入消息类型 `0`，然后委托 syncProtocol 生成/解析 `SyncStep1/2` 的二进制 payload。|
-| Awareness | `awarenessProtocol.encodeAwarenessUpdate` / `applyAwarenessUpdate` | `encoding.writeVarUint8Array` | 将 awareness state 编码为 `Uint8Array`，并在接收端用 `applyAwarenessUpdate` 应用。|
-| Auth | `authProtocol.readAuthMessage` | 无需额外编码（由服务端生成），客户端仅需传入 `Y.doc` 与回调。| 仅在需要鉴权的环境使用，服务端可回复 messageAuth 消息。|
-| Query Awareness | 复用 Awareness 编码 | `awarenessProtocol.encodeAwarenessUpdate` | 用于服务器主动拉取当前 awareness，行为和 `messageAwareness` 一致但回复类型仍为 `1`。|
+| Sync | `syncProtocol.readSyncMessage` / `syncProtocol.writeSyncStep1` | `encoding.writeVarUint` / `encoding.toUint8Array` | 先写入消息类型 `0`，然后委托 syncProtocol 生成/解析 `SyncStep1/2` 的二进制 payload。 |
+| Awareness | `awarenessProtocol.encodeAwarenessUpdate` / `applyAwarenessUpdate` | `encoding.writeVarUint8Array` | 将 awareness state 编码为 `Uint8Array`，并在接收端用 `applyAwarenessUpdate` 应用。 |
+| Auth | `authProtocol.readAuthMessage` | 无需额外编码（由服务端生成），客户端仅需传入 `Y.doc` 与回调。 | 仅在需要鉴权的环境使用，服务端可回复 messageAuth 消息。 |
+| Query Awareness | 复用 Awareness 编码 | `awarenessProtocol.encodeAwarenessUpdate` | 用于服务器主动拉取当前 awareness，行为和 `messageAwareness` 一致但回复类型仍为 `1`。 |
 
 ```ts
 import * as encoding from 'lib0/encoding'

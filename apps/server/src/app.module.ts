@@ -4,14 +4,13 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
-import { configuration } from './config/configuration';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      load: [configuration],
-      isGlobal: true,
-    }),
+    // ConfigModule.forRoot({
+    //   load: [configuration],
+    //   isGlobal: true,
+    // }),
     LoggerModule.forRoot({
       pinoHttp: {
         level: 'warn',
