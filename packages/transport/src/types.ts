@@ -48,8 +48,12 @@ export interface KafkaConsumerRunConfig {
  * Kafka 消费者。
  */
 export interface KafkaConsumer {
-  /** 订阅 topic 这里只能是字符串，因为虽然 kafkajs 支持正则但是新建的是监听不了的，所以需要动态内部管理 */
+  /** 订阅指定 topic。 */
   subscribe(topic: string): Promise<void>;
+  /** 取消订阅指定 topic。 */
+  unsubscribe?(topic: string): Promise<void>;
+  /** 输出当前已订阅的 topic 列表。 */
+  listSubscriptions?(): Promise<string[]>;
   /** 开始消费 */
   run(config: KafkaConsumerRunConfig): Promise<void>;
   /** 停止消费 */
@@ -67,6 +71,7 @@ export interface KafkaProducer {
 
 /** Topic 解析器。 */
 export interface TopicResolver {
+  prefix: string;
   resolveSyncTopic(metadata: ProtocolMessageMetadata): string;
   resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string;
   resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
@@ -144,6 +149,8 @@ export interface StartKafkaConsumerDeps {
   roomRegistry: RoomRegistry;
   protocolCodec: ProtocolCodecAdapter;
   topicResolver: TopicResolver;
+  /** 初始需要订阅的 topic 列表 */
+  topics?: string[];
   onMessageEvent?: ProtocolMessageType | string;
   onMessageProcessed?: (
     metadata: ProtocolMessageMetadata,

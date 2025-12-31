@@ -39,10 +39,10 @@ Kafka ──(transport consumer)──▶ sockets ──(protocol decode)──�
 
 2. **transport → Kafka**  
    - `createSocketMessageTransportHandlers.handleClientMessage` 调用 `protocolCodec.encodeKafkaEnvelope(payload, metadata)` 将两部分封装成 `[messageType:1][metadataLength:4 little endian][metadata UTF-8 JSON][payloadBody]`。  
-   - `TopicResolver` 根据 `channel/metadata` 输出 topic，交给 `kafkaProducer.produce` 写入 Kafka。
+   - `TopicResolver` 根据 `channel/metadata` 输出具体 topic（例如 `y-kafka-collabation-sync-{roomId}-{docId}`），交给 `kafkaProducer.produce` 写入 Kafka。
 
 3. **Kafka → transport**  
-   - `startKafkaConsumer` 订阅 `TopicResolver` 暴露的 topic/pattern。  
+   - Runtime 需要事先调用 `topicResolver.resolve{Channel}Topic(metadata)` 生成 topic，并通过 `kafkaConsumer.subscribe(topic)` 注册，或在调用 `startKafkaConsumer({ topics: [...] })` 时一次性传入订阅列表。transport 不再内置任何通配/正则。  
    - 每条 record 调用 `protocolCodec.decodeKafkaEnvelope(record.value)` 还原 metadata 与完整的 y-websocket payload。
 
 4. **transport → Provider（下行）**  
@@ -98,12 +98,17 @@ io.on('connection', (socket) => {
 ```ts
 import { startKafkaConsumer } from '@y-kafka-collabation-server/transport';
 
+const syncTopic = topicResolver.resolveSyncTopic(metadata);
+const awarenessTopic = topicResolver.resolveAwarenessTopic(metadata);
+await kafkaConsumer.subscribe(syncTopic);
+await kafkaConsumer.subscribe(awarenessTopic);
+
 await startKafkaConsumer({
   kafkaConsumer,   // 任意兼容接口的 Kafka client
   protocolCodec,   // 仍然来自 protocol 包
   roomRegistry,    // 与 socket handler 共享
-  topicResolver,   // 可携带 pattern，用于 subscribe
-  onMessageEvent: 'protocol-message', // Provider 默认监听的事件名
+  topics: [syncTopic, awarenessTopic], // 初始订阅列表，可选
+  onMessageEvent: 'protocol-message',   // Provider 默认监听的事件名
   onMessageProcessed: async (metadata, payload) => {
     metrics.observe(metadata.docId, payload.length);
   },
@@ -112,9 +117,9 @@ await startKafkaConsumer({
 
 行为说明：
 
-1. 自动订阅 `topicResolver.syncTopicPattern ?? /yjs-sync-.+/` 与 `topicResolver.awarenessTopicPattern ?? /yjs-awareness-.+/`。
-2. 每条消息都会 `decodeKafkaEnvelope`，解出 `metadata + messageType + payload`，并根据 `(docId, subdocId)` 找到 sockets。
-3. 广播 payload 时不会做 Yjs 处理，Provider 复用 protocol 包直接调用 `decodeMessage`。
+1. Runtime 负责决定要监听哪些 topic，并调用 `kafkaConsumer.subscribe` 或在 `topics` 参数中一次性传入；transport 不进行通配订阅。  
+2. 每条消息都会 `decodeKafkaEnvelope`，解出 `metadata + messageType + payload`，并根据 `(roomId, docId, subdocId)` 找到 sockets。  
+3. 广播 payload 时不会做 Yjs 处理，Provider 复用 protocol 包直接调用 `decodeMessage`。  
 4. `onMessageProcessed` 可选，用于记指标或链路追踪。
 
 ## RoomRegistry 与 TopicResolver
@@ -138,12 +143,10 @@ await startKafkaConsumer({
     resolveSyncTopic(metadata): string;
     resolveAwarenessTopic(metadata): string;
     resolveControlTopic?(metadata): string;
-    syncTopicPattern?: RegExp;
-    awarenessTopicPattern?: RegExp;
   }
   ```  
 
-  你可以按租户 / room hash / slot 的方式返回 topic，同时提供匹配该策略的 `pattern` 供 consumer 订阅。
+  你可以按租户 / room hash / slot 的方式返回 topic；transport 只依赖解析结果本身，订阅由 Runtime 手动调用 Kafka 客户端完成。
 
 ## 与 protocol 包的关系
 

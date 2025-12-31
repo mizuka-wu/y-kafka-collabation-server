@@ -41,7 +41,8 @@ export class DefaultTopicResolver implements TopicResolver {
   }
 
   resolveControlTopic(metadata: ProtocolMessageMetadata): string {
-    const template = this.templates.control ?? 'control-{roomId}';
-    return this.generateTopicName(template, metadata);
+    if (!this.templates.control)
+      throw new Error('control topic template is not defined');
+    return this.generateTopicName(this.templates.control, metadata);
   }
 }
