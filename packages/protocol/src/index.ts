@@ -7,22 +7,13 @@ import {
   ProtocolMessageHandler,
   ProtocolMessageMetadata,
   ProtocolCodecContext,
+  ProtocolMessageType,
 } from './types';
 import { syncHandler } from './handlers/sync';
 import { awarenessHandler } from './handlers/awareness';
 import { authHandler } from './handlers/auth';
 import { queryAwarenessHandler } from './handlers/queryAwareness';
 import type * as Y from 'yjs';
-
-/**
- * 与 y-websocket 保持一致的消息类型编号。
- */
-export enum ProtocolMessageType {
-  Sync = 0,
-  Awareness = 1,
-  Auth = 2,
-  QueryAwareness = 3,
-}
 
 const messageHandlers: Record<ProtocolMessageType, ProtocolMessageHandler> = {
   [ProtocolMessageType.Sync]: syncHandler,
@@ -271,6 +262,7 @@ export const createMetadata = (
   timestamp: Date.now(),
 });
 
+export { ProtocolMessageType } from './types';
 export type {
   ProtocolCodecContext,
   ProtocolMessageMetadata,

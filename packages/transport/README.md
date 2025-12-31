@@ -34,8 +34,7 @@ Kafka ──(transport consumer)──▶ sockets ──(protocol decode)──�
 
 1. **Provider → transport（Socket.IO 上行）**  
    - 事件名：`protocol-message`（ProtocolMessageEventName）。  
-   - 数据结构：`ClientOutgoingMessage`，包含 `payload: Uint8Array`（纯 y-websocket 二进制，首字节是 messageType）、`metadata: ProtocolMessageMetadata`（roomId/docId/subdocId/senderId/...）、`channel: 'sync' | 'awareness' | ...`。  
-   - transport 不改写 `payload`/`metadata`，只做最小校验。
+   - 数据结构：基于 y-websocket 拓展的 message
 
 2. **transport → Kafka**  
    - `createSocketMessageTransportHandlers.handleClientMessage` 调用 `protocolCodec.encodeKafkaEnvelope(payload, metadata)` 将两部分封装成 `[messageType:1][metadataLength:4 little endian][metadata UTF-8 JSON][payloadBody]`。  
