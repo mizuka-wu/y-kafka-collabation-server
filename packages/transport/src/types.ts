@@ -110,6 +110,7 @@ export interface RoomRegistry {
   add(socket: Socket, assignment: RoomAssignment): void;
   remove(socket: Socket): void;
   getSockets(roomId: string, docId?: string, subdocId?: string): Socket[];
+  getRooms(): string[];
   onRoomChange(listener: (change: RoomPresenceChange) => void): () => void;
 }
 
@@ -156,8 +157,6 @@ export interface StartKafkaConsumerDeps {
   roomRegistry: RoomRegistry;
   protocolCodec: ProtocolCodecAdapter;
   topicResolver: TopicResolver;
-  /** 初始需要订阅的 topic 列表 */
-  topics?: string[];
   onMessageEvent?: ProtocolMessageType | string;
   onMessageProcessed?: (
     metadata: ProtocolMessageMetadata,

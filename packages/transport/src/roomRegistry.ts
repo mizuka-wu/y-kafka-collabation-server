@@ -122,6 +122,10 @@ export class DefaultRoomRegistry implements RoomRegistry {
     return Array.from(this.roomIndex.get(roomId) ?? []);
   }
 
+  getRooms(): string[] {
+    return Array.from(this.roomIndex.keys());
+  }
+
   private getDocKey(roomId: string, docId: string): string {
     return `${roomId}::${docId}`;
   }
