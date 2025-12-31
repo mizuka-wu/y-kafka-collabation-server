@@ -14,9 +14,11 @@ import type { RoomAssignment, RoomRegistry } from './types';
 export class DefaultRoomRegistry implements RoomRegistry {
   /** Socket 到房间/子文档分配的映射 */
   private socketAssignments = new Map<Socket, RoomAssignment>();
-  /** 房间 ID 到 Socket 集合的映射 */
+  /** roomId → sockets，对应整房广播（控制/运维场景）。 */
   private roomIndex = new Map<string, Set<Socket>>();
-  /** 子文档 ID 到 Socket 集合的映射 */
+  /** roomId + docId → sockets，定位主文档。 */
+  private docIndex = new Map<string, Set<Socket>>();
+  /** roomId + docId + subdocId → sockets，定位子文档。 */
   private subdocIndex = new Map<string, Set<Socket>>();
 
   /** 定期清理断开连接的 Socket 的定时器 */
@@ -35,20 +37,20 @@ export class DefaultRoomRegistry implements RoomRegistry {
     this.remove(socket);
     this.socketAssignments.set(socket, assignment);
 
-    let roomSet = this.roomIndex.get(assignment.roomId);
-    if (!roomSet) {
-      roomSet = new Set();
-      this.roomIndex.set(assignment.roomId, roomSet);
-    }
+    const roomSet = this.getIndexSet(this.roomIndex, assignment.roomId);
     roomSet.add(socket);
 
+    const docKey = this.getDocKey(assignment.roomId, assignment.docId);
+    const docSet = this.getIndexSet(this.docIndex, docKey);
+    docSet.add(socket);
+
     if (assignment.subdocId) {
-      const subKey = this.getSubdocKey(assignment.roomId, assignment.subdocId);
-      let subSet = this.subdocIndex.get(subKey);
-      if (!subSet) {
-        subSet = new Set();
-        this.subdocIndex.set(subKey, subSet);
-      }
+      const subKey = this.getSubdocKey(
+        assignment.roomId,
+        assignment.docId,
+        assignment.subdocId,
+      );
+      const subSet = this.getIndexSet(this.subdocIndex, subKey);
       subSet.add(socket);
     }
   }
@@ -60,32 +62,70 @@ export class DefaultRoomRegistry implements RoomRegistry {
     }
     this.socketAssignments.delete(socket);
 
-    const roomSet = this.roomIndex.get(assignment.roomId);
-    roomSet?.delete(socket);
-    if (roomSet && roomSet.size === 0) {
-      this.roomIndex.delete(assignment.roomId);
-    }
+    this.deleteFromIndex(this.roomIndex, assignment.roomId, socket);
+
+    const docKey = this.getDocKey(assignment.roomId, assignment.docId);
+    this.deleteFromIndex(this.docIndex, docKey, socket);
 
     if (assignment.subdocId) {
-      const subKey = this.getSubdocKey(assignment.roomId, assignment.subdocId);
-      const subSet = this.subdocIndex.get(subKey);
-      subSet?.delete(socket);
-      if (subSet && subSet.size === 0) {
-        this.subdocIndex.delete(subKey);
-      }
+      const subKey = this.getSubdocKey(
+        assignment.roomId,
+        assignment.docId,
+        assignment.subdocId,
+      );
+      this.deleteFromIndex(this.subdocIndex, subKey, socket);
     }
   }
 
-  getSockets(roomId: string, subdocId?: string): Socket[] {
-    if (subdocId) {
-      const subKey = this.getSubdocKey(roomId, subdocId);
+  getSockets(roomId: string, docId?: string, subdocId?: string): Socket[] {
+    if (docId && subdocId) {
+      const subKey = this.getSubdocKey(roomId, docId, subdocId);
       return Array.from(this.subdocIndex.get(subKey) ?? []);
+    }
+    if (docId) {
+      const docKey = this.getDocKey(roomId, docId);
+      return Array.from(this.docIndex.get(docKey) ?? []);
     }
     return Array.from(this.roomIndex.get(roomId) ?? []);
   }
 
-  private getSubdocKey(roomId: string, subdocId: string): string {
-    return `${roomId}::${subdocId}`;
+  private getDocKey(roomId: string, docId: string): string {
+    return `${roomId}::${docId}`;
+  }
+
+  private getSubdocKey(
+    roomId: string,
+    docId: string,
+    subdocId: string,
+  ): string {
+    return `${roomId}::${docId}::${subdocId}`;
+  }
+
+  private getIndexSet(
+    index: Map<string, Set<Socket>>,
+    key: string,
+  ): Set<Socket> {
+    let set = index.get(key);
+    if (!set) {
+      set = new Set();
+      index.set(key, set);
+    }
+    return set;
+  }
+
+  private deleteFromIndex(
+    index: Map<string, Set<Socket>>,
+    key: string,
+    socket: Socket,
+  ): void {
+    const set = index.get(key);
+    if (!set) {
+      return;
+    }
+    set.delete(socket);
+    if (set.size === 0) {
+      index.delete(key);
+    }
   }
 
   prune(): void {
@@ -113,6 +153,7 @@ export class DefaultRoomRegistry implements RoomRegistry {
     }
     this.socketAssignments.clear();
     this.roomIndex.clear();
+    this.docIndex.clear();
     this.subdocIndex.clear();
   }
 }
