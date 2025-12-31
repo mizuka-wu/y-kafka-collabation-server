@@ -98,7 +98,7 @@ export interface RoomAssignment {
 export interface RoomRegistry {
   add(socket: Socket, assignment: RoomAssignment): void;
   remove(socket: Socket): void;
-  getSockets(roomId: string, docId: string, subdocId?: string): Socket[];
+  getSockets(roomId: string, docId?: string, subdocId?: string): Socket[];
 }
 
 /**

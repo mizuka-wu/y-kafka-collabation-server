@@ -90,7 +90,7 @@ await startKafkaConsumer({
   interface RoomRegistry {
     add(socket, assignment);
     remove(socket);
-    getSockets(docId: string, subdocId?: string): Socket[];
+    getSockets(roomId: string, docId: string, subdocId?: string): Socket[];
   }
   ```  
 
