@@ -1,7 +1,6 @@
 import type { Socket } from 'socket.io';
 import type {
   ProtocolMessageMetadata,
-  ProtocolMessageType,
   decodeMetadataFromMessage,
 } from '@y-kafka-collabation-server/protocol';
 
@@ -149,9 +148,4 @@ export interface StartKafkaConsumerDeps {
   roomRegistry: RoomRegistry;
   decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   topicResolver: TopicResolver;
-  onMessageEvent?: ProtocolMessageType | string;
-  onMessageProcessed?: (
-    metadata: ProtocolMessageMetadata,
-    payload: Uint8Array,
-  ) => Promise<void>;
 }
