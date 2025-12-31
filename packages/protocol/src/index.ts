@@ -149,15 +149,38 @@ export const encodeKafkaEnvelope = (
   return envelope;
 };
 
+export const decodeMetadataFromKafkaEnvelope = (
+  buffer: Uint8Array,
+): ProtocolMessageMetadata => {
+  if (buffer.length < 5) {
+    throw new Error('Kafka envelope too short');
+  }
+
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength,
+  );
+  const metadataLength = view.getUint32(1, true);
+  const metadataStart = 5;
+  const metadataEnd = metadataStart + metadataLength;
+  if (buffer.length < metadataEnd) {
+    throw new Error('Kafka envelope metadata length mismatch');
+  }
+  const metadataBytes = buffer.subarray(metadataStart, metadataEnd);
+  return JSON.parse(textDecoder.decode(metadataBytes));
+};
+
 /**
  * 反序列化 Kafka payload 并还原 metadata + 原始 Yjs 二进制。
  */
 export const decodeKafkaEnvelope = (
   buffer: Uint8Array,
+  includeMetadata?: boolean,
 ): {
-  metadata: ProtocolMessageMetadata;
   payload: Uint8Array;
   messageType: ProtocolMessageType;
+  metadata?: ProtocolMessageMetadata;
 } => {
   if (buffer.length < 5) {
     throw new Error('Kafka envelope too short');
@@ -174,12 +197,14 @@ export const decodeKafkaEnvelope = (
   if (buffer.length < metadataEnd) {
     throw new Error('Kafka envelope metadata length mismatch');
   }
-  const metadataBytes = buffer.subarray(metadataStart, metadataEnd);
   const payloadBody = buffer.subarray(metadataEnd);
   const payload = new Uint8Array(1 + payloadBody.length);
   payload[0] = messageType;
   payload.set(payloadBody, 1);
-  const metadata = JSON.parse(textDecoder.decode(metadataBytes));
+
+  let metadata: undefined | ProtocolMessageMetadata;
+  if (includeMetadata) metadata = decodeMetadataFromKafkaEnvelope(buffer);
+
   return {
     metadata,
     payload,
@@ -208,7 +233,15 @@ export const decodeKafkaProtocolMessage = (
   reply: Uint8Array | null;
   messageType: ProtocolMessageType;
 } => {
-  const { metadata, payload, messageType } = decodeKafkaEnvelope(buffer);
+  /**
+   * metadata为一定能解析出来
+   */
+  const { metadata, payload, messageType } = decodeKafkaEnvelope(
+    buffer,
+    true,
+  ) as ReturnType<typeof decodeKafkaEnvelope> & {
+    metadata: ProtocolMessageMetadata;
+  };
   const reply = decodeMessage(context, payload, emitSynced);
   return { metadata, reply, messageType };
 };
