@@ -70,9 +70,6 @@ export interface TopicResolver {
   resolveSyncTopic(metadata: ProtocolMessageMetadata): string;
   resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string;
   resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
-  syncTopicPattern?: RegExp;
-  awarenessTopicPattern?: RegExp;
-  controlTopicPattern?: RegExp;
 }
 
 /** 协议编解码器。 */
