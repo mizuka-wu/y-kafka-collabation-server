@@ -4,16 +4,6 @@ import type * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 
 /**
- * 与 y-websocket 保持一致的消息类型编号。
- */
-export enum ProtocolMessageType {
-  Sync = 0,
-  Awareness = 1,
-  Auth = 2,
-  QueryAwareness = 3,
-}
-
-/**
  * 上层协议需要的元信息，可以顺序发送到 WebSocket/Kafka。
  */
 export interface ProtocolMessageMetadata {
