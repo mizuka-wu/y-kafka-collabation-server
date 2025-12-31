@@ -54,3 +54,13 @@ export type ProtocolMessageHandler = (
   context: ProtocolCodecContext,
   emitSynced: boolean,
 ) => void;
+
+/**
+ * Kafka 下行事件 payload，供 transport/provider 共享。
+ */
+export interface ProtocolMessageEventPayload {
+  topic: string;
+  partition?: number;
+  offset?: string;
+  message: Uint8Array;
+}

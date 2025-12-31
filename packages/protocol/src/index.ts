@@ -234,4 +234,5 @@ export type {
   ProtocolMessageMetadata,
   ProtocolMessageHandler,
   ProtocolMessageType,
+  ProtocolMessageEventPayload,
 } from './types';
