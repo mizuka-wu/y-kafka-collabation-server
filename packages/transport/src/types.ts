@@ -1,4 +1,4 @@
-import { Socket } from 'socket.io';
+import type { Socket } from 'socket.io';
 import type {
   ProtocolMessageMetadata,
   ProtocolMessageType,
@@ -96,6 +96,12 @@ export interface RoomAssignment {
   subdocId?: string;
 }
 
+/** 房间加入/移除事件。 */
+export type RoomPresenceChange = {
+  type: 'added' | 'removed';
+  roomId: string;
+};
+
 /**
  * 房间注册表
  * 目的为方便向连接的 socket 下发内容
@@ -104,6 +110,7 @@ export interface RoomRegistry {
   add(socket: Socket, assignment: RoomAssignment): void;
   remove(socket: Socket): void;
   getSockets(roomId: string, docId?: string, subdocId?: string): Socket[];
+  onRoomChange(listener: (change: RoomPresenceChange) => void): () => void;
 }
 
 /**
