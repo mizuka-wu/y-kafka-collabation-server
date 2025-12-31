@@ -69,12 +69,15 @@ export interface KafkaProducer {
   }): Promise<void>;
 }
 
+export type TopicResolverInput = ProtocolMessageMetadata | string;
+
 /** Topic 解析器。 */
 export interface TopicResolver {
   prefix: string;
-  resolveSyncTopic(metadata: ProtocolMessageMetadata): string;
-  resolveAwarenessTopic(metadata: ProtocolMessageMetadata): string;
-  resolveControlTopic?(metadata: ProtocolMessageMetadata): string;
+  resolveSyncTopic(input: TopicResolverInput): string;
+  resolveAwarenessTopic(input: TopicResolverInput): string;
+  resolveControlTopic?(input: TopicResolverInput): string;
+  parseChannelFromTopic(topic: string): Channel;
 }
 
 /** 协议编解码器。 */
