@@ -1,12 +1,27 @@
-import { ProtocolMessageEventName } from '@y-kafka-collabation-server/protocol';
-import type { KafkaMessage, StartKafkaConsumerDeps } from './types';
+import {
+  ProtocolMessageEventName,
+  type ProtocolMessageEventPayload,
+} from '@y-kafka-collabation-server/protocol';
+import type {
+  KafkaMessage,
+  StartKafkaConsumerDeps,
+  TopicResolver,
+} from './types';
 
 const toUint8Array = (data: Uint8Array | Buffer): Uint8Array => {
   return data instanceof Uint8Array ? data : new Uint8Array(data);
 };
 
-const DEFAULT_SYNC_TOPIC = 'yjs-sync-*';
-const DEFAULT_AWARENESS_TOPIC = 'yjs-awareness-*';
+function getTopicsFromRoomId(roomId: string, topicResolver: TopicResolver) {
+  const topics = [
+    topicResolver.resolveSyncTopic(roomId),
+    topicResolver.resolveAwarenessTopic(roomId),
+  ];
+  if (topicResolver.resolveControlTopic) {
+    topics.push(topicResolver.resolveControlTopic(roomId));
+  }
+  return topics;
+}
 
 /**
  * 开始消费 Kafka 消息。
@@ -17,16 +32,24 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
     kafkaConsumer,
     roomRegistry,
     protocolCodec,
-    topicResolver,
     onMessageEvent = ProtocolMessageEventName,
+    onMessageProcessed,
+    topicResolver,
   } = deps;
 
-  const syncTopicPattern = topicResolver.syncTopicPattern ?? DEFAULT_SYNC_TOPIC;
-  const awarenessTopicPattern =
-    topicResolver.awarenessTopicPattern ?? DEFAULT_AWARENESS_TOPIC;
-
-  await kafkaConsumer.subscribe(syncTopicPattern);
-  await kafkaConsumer.subscribe(awarenessTopicPattern);
+  /**
+   * 初始化的
+   */
+  const initialTopics = Array.from(
+    new Set(
+      roomRegistry
+        .getRooms()
+        .flatMap((roomId) => getTopicsFromRoomId(roomId, topicResolver)),
+    ),
+  );
+  for (const topic of initialTopics) {
+    await kafkaConsumer.subscribe(topic);
+  }
 
   await kafkaConsumer.run({
     autoCommit: true,
@@ -49,29 +72,36 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
         return;
       }
 
-      const roomId = metadata.roomId;
-      const docId = metadata.docId;
+      const { roomId, docId, subdocId } = metadata;
 
       if (!roomId || !docId) {
+        console.warn('Kafka message missing roomId/docId metadata', {
+          topic: message.topic,
+          metadata,
+        });
         return;
       }
 
-      const sockets = metadata.subdocId
-        ? roomRegistry.getSockets(docId, metadata.subdocId)
-        : roomRegistry.getSockets(docId);
+      const sockets = roomRegistry.getSockets(roomId, docId, subdocId);
       if (sockets.length === 0) {
         return;
       }
 
+      const eventPayload: ProtocolMessageEventPayload = {
+        topic: message.topic,
+        partition: message.partition,
+        offset: message.offset,
+        metadata,
+        payload,
+      };
+
       sockets.forEach((socket) => {
-        socket.emit(onMessageEvent, {
-          topic: message.topic,
-          partition: message.partition,
-          offset: message.offset,
-          metadata,
-          payload,
-        });
+        socket.emit(ProtocolMessageEventName, eventPayload);
       });
+
+      if (onMessageProcessed) {
+        await onMessageProcessed(metadata, payload);
+      }
     },
   });
 };
