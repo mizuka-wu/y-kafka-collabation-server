@@ -25,6 +25,41 @@
 
 ## API
 
+### 数据包装/拆包流程
+
+```text
+Provider(Runtime) ──(Socket.IO: protocol-message)──▶ transport ──(Kafka produce)──▶ Kafka
+Kafka ──(transport consumer)──▶ sockets ──(protocol decode)──▶ Provider(Runtime)
+```
+
+1. **Provider → transport（Socket.IO 上行）**  
+   - 事件名：`protocol-message`（ProtocolMessageEventName）。  
+   - 数据结构：`ClientOutgoingMessage`，包含 `payload: Uint8Array`（纯 y-websocket 二进制，首字节是 messageType）、`metadata: ProtocolMessageMetadata`（roomId/docId/subdocId/senderId/...）、`channel: 'sync' | 'awareness' | ...`。  
+   - transport 不改写 `payload`/`metadata`，只做最小校验。
+
+2. **transport → Kafka**  
+   - `createSocketMessageTransportHandlers.handleClientMessage` 调用 `protocolCodec.encodeKafkaEnvelope(payload, metadata)` 将两部分封装成 `[messageType:1][metadataLength:4 little endian][metadata UTF-8 JSON][payloadBody]`。  
+   - `TopicResolver` 根据 `channel/metadata` 输出 topic，交给 `kafkaProducer.produce` 写入 Kafka。
+
+3. **Kafka → transport**  
+   - `startKafkaConsumer` 订阅 `TopicResolver` 暴露的 topic/pattern。  
+   - 每条 record 调用 `protocolCodec.decodeKafkaEnvelope(record.value)` 还原 metadata 与完整的 y-websocket payload。
+
+4. **transport → Provider（下行）**  
+   - 根据 metadata 的 `roomId/docId/subdocId` 向 `RoomRegistry` 查询 sockets。  
+   - 向命中的 socket 广播 `protocol-message`，载荷结构：  
+
+     ```ts
+     {
+       channel: metadata.channel;
+       metadata;
+       payload; // decode 后恢复的 y-websocket buffer
+       offset/topic/partition; // Runtime 可选追加
+     }
+     ```
+
+   - Provider 再用 protocol 包执行 `decodeMessage`，对 Y.Doc/Awareness 进行实际更新。
+
 ### `createSocketMessageTransportHandlers`
 
 ```ts
