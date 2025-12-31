@@ -13,24 +13,24 @@
 
 | 链路 | transport 实际行为 | 依赖 |
 | --- | --- | --- |
-| 客户端 → Kafka | `createBusSocketHandlers().handleClientMessage` 读取 `ClientMessage`，照搬其中的 metadata/payload，借助 `TopicResolver` 选 topic，并调用 `protocolCodec.encodeKafkaEnvelope` → `kafkaProducer.produce`。transport 不补字段，只在缺失时返回错误。 | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
+| 客户端 → Kafka | `createSocketMessageTransportHandlers().handleClientMessage` 读取 `ClientMessage`，照搬其中的 metadata/payload，借助 `TopicResolver` 选 topic，并调用 `protocolCodec.encodeKafkaEnvelope` → `kafkaProducer.produce`。transport 不补字段，只在缺失时返回错误。 | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
 | Kafka → 客户端 | `startKafkaConsumer` 读取 Kafka record，解包 envelope 得到 metadata + payload，根据 metadata 在 `RoomRegistry` 找 sockets，并组装成客户端期望的 `protocol-message`（包含 topic/partition/offset/metadata/payload）回推。 | `KafkaConsumer`、`RoomRegistry`、`ProtocolCodecAdapter` |
 
 ## 目录概览
 
 - `src/types.ts`：集中定义 transport 需要的接口（Kafka producer/consumer、TopicResolver、RoomRegistry 等），便于 Runtime 以依赖注入的方式使用。
-- `src/socketHandlers.ts`：实现 `createBusSocketHandlers`，给 Socket.IO 连接复用。
+- `src/socketHandlers.ts`：实现 `createSocketMessageTransportHandlers`，给 Socket.IO 连接复用。
 - `src/kafkaConsumer.ts`：实现 `startKafkaConsumer`，负责落地消费逻辑。
 - `src/roomRegistry.ts`（若存在）：提供一个最简单的内存 `RoomRegistry` 示例，方便本地 demo；生产环境可替换为 Redis/自研版本。
 
 ## API
 
-### `createBusSocketHandlers`
+### `createSocketMessageTransportHandlers`
 
 ```ts
-import { createBusSocketHandlers } from '@y-kafka-collabation-server/transport';
+import { createSocketMessageTransportHandlers } from '@y-kafka-collabation-server/transport';
 
-const handlers = createBusSocketHandlers({
+const handlers = createSocketMessageTransportHandlers({
   kafkaProducer,
   protocolCodec, // 直接传入 @y-kafka-collabation-server/protocol
   roomRegistry,  // Runtime 自己实现的 RoomRegistry
@@ -119,7 +119,7 @@ await startKafkaConsumer({
 ## 集成流程（对应根 README）
 
 1. Provider 发送 `protocol-message`（payload = 纯 y-websocket buffer，metadata = room/doc/subdoc/sender/channel）。  
-2. Runtime 通过 `createBusSocketHandlers` 将消息写入 Kafka，并在写入成功后（在 Runtime 层）返回 `(topic, partition, offset)` 给发起方。  
+2. Runtime 通过 `createSocketMessageTransportHandlers` 将消息写入 Kafka，并在写入成功后（在 Runtime 层）返回 `(topic, partition, offset)` 给发起方。  
 3. `startKafkaConsumer` 消费 Kafka、查 `RoomRegistry`、把原始 payload + metadata 发给所有本机 sockets；Provider 再用 protocol 包解析并更新本地 Y.Doc/Awareness。  
 4. 需要持久化或控制命令时，只需在 TopicResolver 中加入对应的 topic/protocol channel，transport 仍然保持透明。
 

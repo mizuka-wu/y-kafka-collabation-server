@@ -42,7 +42,7 @@ flowchart LR
 | `packages/provider` | 客户端 Provider | 管理 `Y.Doc` & Awareness，暴露 Socket.IO/WebsocketProvider 风格 API。 |
 | `apps/demo` | 演示客户端 | 集成 Provider，展示文档/白板等协同场景。 |
 | `packages/runtime` | 服务端 Runtime（核心 orchestrator） | 内建 Socket.IO server，串接 protocol、Kafka、TopicResolver、RoomRoadMap、Persistence hooks。 |
-| `packages/transport` | 传输适配层 | 提供 `createBusSocketHandlers`、`startKafkaConsumer`，供 runtime 注入或复用。 |
+| `packages/transport` | 传输适配层 | 提供 `createSocketMessageTransportHandlers`、`startKafkaConsumer`，供 runtime 注入或复用。 |
 | `packages/protocol` | 协议核心 | 统一 `ProtocolMessage` metadata、Yjs 编解码、Kafka envelope。 |
 | `packages/persistence` | 持久化服务 | Snapshot/history、对象存储挂载，对 runtime/server 暴露恢复 API。 |
 | `apps/server` | NestJS Demo | 将 runtime 打包成 Nest 模块，附带 HTTP Snapshot/Publish 等调试接口。 |

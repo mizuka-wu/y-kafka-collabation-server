@@ -15,7 +15,7 @@ client ⇄ transport(Socket.IO) ⇄ runtime ⇄ Kafka/Protocol ⇄ persistence
 5. **降级/权限钩子**：在进入 Kafka 前执行 Authorization、降级策略（HTTP fallback、聚合/节流等），确保 socket server 只处理连接和事件转发。
 6. **扩展 API**：可对外暴露 `getDocumentState`、`publishUpdate` 等调试/降级接口，但核心职责是协调 protocol 与 transport，而非承载业务。
 7. **Socket.IO 降级路径**：Socket.IO 的 Engine.IO 层天然支持 WebSocket → HTTP 长轮询 → JSONP 逐级降级。Runtime 需要做的仅是：
-   1. 在 `io.on('connection')` 中无差别处理每个 `Socket`，无论它是 WebSocket 还是长轮询，均使用 `createBusSocketHandlers` 进行 `handleConnection`/`handleClientMessage`/`handleDisconnect`。
+   1. 在 `io.on('connection')` 中无差别处理每个 `Socket`，无论它是 WebSocket 还是长轮询，均使用 `createSocketMessageTransportHandlers` 进行 `handleConnection`/`handleClientMessage`/`handleDisconnect`。
    2. 当 transport 被降级时，Socket.IO 会把消息以 HTTP POST/GET 拉取的形式触发 `socket.on('protocol-message', ...)`，runtime 继续走 Kafka produce 流程；只要消息符合 socket.io 的降级协议就会被正确转发。
    3. 若需要纯 HTTP fallback（不走 Socket.IO），则可通过 runtime 暴露 `GET /collab/doc/:docId`、`POST /collab/publish` 之类的接口：这些接口同样复用 protocol codec，将 HTTP 请求转换成 Kafka 事件，并在响应中返回聚合后的 payload。
 

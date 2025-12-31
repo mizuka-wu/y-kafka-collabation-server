@@ -32,7 +32,7 @@ const resolveTopic = (
   return resolver.resolveSyncTopic(metadata);
 };
 
-export const createBusSocketHandlers = (
+export const createSocketMessageTransportHandlers = (
   deps: CreateSocketHandlersDeps,
 ): {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
