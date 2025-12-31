@@ -1,24 +1,29 @@
-import type { KafkaMessage } from './types';
-import { StartKafkaConsumerDeps } from './types';
+import { ProtocolMessageEventName } from '@y-kafka-collabation-server/protocol';
+import type { KafkaMessage, StartKafkaConsumerDeps } from './types';
 
-const toUint8Array = (data: Uint8Array | Buffer): Uint8Array =>
-  data instanceof Uint8Array ? data : new Uint8Array(data);
+const toUint8Array = (data: Uint8Array | Buffer): Uint8Array => {
+  return data instanceof Uint8Array ? data : new Uint8Array(data);
+};
 
-const defaultSyncTopic = 'yjs-sync-*';
-const defaultAwarenessTopic = 'yjs-awareness-*';
+const DEFAULT_SYNC_TOPIC = 'yjs-sync-*';
+const DEFAULT_AWARENESS_TOPIC = 'yjs-awareness-*';
 
+/**
+ * 开始消费 Kafka 消息。
+ * @param {StartKafkaConsumerDeps}
+ */
 export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
   const {
     kafkaConsumer,
     roomRegistry,
     protocolCodec,
     topicResolver,
-    onMessageEvent = 'protocol-message',
+    onMessageEvent = ProtocolMessageEventName,
   } = deps;
 
-  const syncTopicPattern = topicResolver.syncTopicPattern ?? defaultSyncTopic;
+  const syncTopicPattern = topicResolver.syncTopicPattern ?? DEFAULT_SYNC_TOPIC;
   const awarenessTopicPattern =
-    topicResolver.awarenessTopicPattern ?? defaultAwarenessTopic;
+    topicResolver.awarenessTopicPattern ?? DEFAULT_AWARENESS_TOPIC;
 
   await kafkaConsumer.subscribe(syncTopicPattern);
   await kafkaConsumer.subscribe(awarenessTopicPattern);

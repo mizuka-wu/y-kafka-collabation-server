@@ -2,7 +2,7 @@
 
 本包是 Runtime 的“传输适配层”，只做两件事：
 
-1. **接收 Socket.IO 上行消息 → 写入 Kafka**：把 Provider 发送的 `ProtocolMessage`（payload + metadata）交给 `TopicResolver` 选 topic，再通过 `@y-kafka-collabation-server/protocol` 的信封编码写入 Kafka。
+1. **接收 Socket.IO 上行消息 → 写入 Kafka**：把 Provider/Runtime 已经封装好的 `ProtocolMessage`（payload + metadata）交给 `TopicResolver` 选 topic，再用 `@y-kafka-collabation-server/protocol` 的信封直接写入 Kafka；transport 本身不新增 metadata，只负责路由 + produce。
 2. **消费 Kafka → 广播给当前实例的 sockets**：订阅 `sync/awareness/(可选 control)` topic，解包 metadata，利用 Runtime 注入的 `RoomRegistry` 找到 sockets 并透传给 Provider。
 
 > 上层 Runtime 负责持久化、TopicResolver 实现、RoomRegistry 实现、Kafka 客户端实例等。transport 只提供需要复用的适配代码，确保与根 README 描述的“客户端 ↔ Runtime ↔ Kafka”流程一致。
@@ -13,7 +13,7 @@
 
 | 链路 | transport 实际行为 | 依赖 |
 | --- | --- | --- |
-| 客户端 → Kafka | `createBusSocketHandlers().handleClientMessage` 解析 `BusClientMessage`，确认 metadata（room/doc/subdoc/channel 等）与 Runtime 预期一致，然后把 payload + metadata 封装成 Kafka envelope 并 produce；同时依赖 `TopicResolver` 决定最终 topic。 | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
+| 客户端 → Kafka | `createBusSocketHandlers().handleClientMessage` 读取 `ClientMessage`，照搬其中的 metadata/payload，借助 `TopicResolver` 选 topic，并调用 `protocolCodec.encodeKafkaEnvelope` → `kafkaProducer.produce`。transport 不补字段，只在缺失时返回错误。 | `TopicResolver`、`ProtocolCodecAdapter`、`KafkaProducer` |
 | Kafka → 客户端 | `startKafkaConsumer` 读取 Kafka record，解包 envelope 得到 metadata + payload，根据 metadata 在 `RoomRegistry` 找 sockets，并组装成客户端期望的 `protocol-message`（包含 topic/partition/offset/metadata/payload）回推。 | `KafkaConsumer`、`RoomRegistry`、`ProtocolCodecAdapter` |
 
 ## 目录概览
@@ -54,7 +54,7 @@ io.on('connection', (socket) => {
 
 要点：
 
-- `message.metadata` 会由 transport 读取与校验（至少 `roomId/docId`）。若缺失，Runtime 应在调用前补齐或直接拒绝该消息。
+- `message.metadata` transport 只做最小校验（至少 `roomId/docId`），不负责补齐；若缺失请在 Runtime/Provider 层修复后再调用。
 - `topicResolver` 只需实现 `resolveSyncTopic` / `resolveAwarenessTopic`（以及可选的 `resolveControlTopic`）；transport 不关心 topic 具体命名。
 - transport 不做鉴权/速率控制，需要的话请在调用 `handleClientMessage` 前处理。
 
@@ -125,11 +125,9 @@ await startKafkaConsumer({
 
 ## TODO / 扩展方向
 
-- 增加 `control` channel 的消费模板（目前仅支持 produce）。  
-- 提供官方的 `RedisRoomRegistry` 与 `BullMQ`/`KafkaJS` 示例，方便多实例部署。  
 - 抽象出错误回调，让 Runtime 可以自定义 `protocol:error` 事件格式。  
 - 在 `startKafkaConsumer` 中暴露 hook，便于把 Kafka offset 自动 ACK 回 Provider。
 
 ---
 
-如需进一步定制（限流、鉴权、日志采集），建议在调用 transport API 之前/之后包一层 middleware，而不要修改 transport 内核，这样可以继续受益于 protocol 契约与主 README 的统一设计。
+进一步的限流、鉴权、日志采集均由 Runtime 层负责，transport 不涉入这些流程。

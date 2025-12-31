@@ -1,7 +1,7 @@
 import type { Socket } from 'socket.io';
 import {
-  BusClientMessage,
-  CreateBusSocketHandlersDeps,
+  ClientOutgoingMessage,
+  CreateSocketHandlersDeps,
   RoomAssignment,
 } from './types';
 import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
@@ -21,7 +21,7 @@ const toUint8Array = (payload: Uint8Array | Buffer | string): Uint8Array => {
 const resolveTopic = (
   channel: string | undefined,
   metadata: ProtocolMessageMetadata,
-  resolver: CreateBusSocketHandlersDeps['topicResolver'],
+  resolver: CreateSocketHandlersDeps['topicResolver'],
 ): string => {
   if (channel === 'awareness') {
     return resolver.resolveAwarenessTopic(metadata);
@@ -33,12 +33,12 @@ const resolveTopic = (
 };
 
 export const createBusSocketHandlers = (
-  deps: CreateBusSocketHandlersDeps,
+  deps: CreateSocketHandlersDeps,
 ): {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
   handleClientMessage: (
     socket: Socket,
-    message: BusClientMessage,
+    message: ClientOutgoingMessage,
   ) => Promise<void>;
   handleDisconnect: (socket: Socket) => void;
 } => {

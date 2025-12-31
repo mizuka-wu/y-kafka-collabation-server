@@ -34,7 +34,7 @@ const interpolateTemplate = (
   });
 };
 
-export class TemplateTopicResolver implements TopicResolver {
+export class DefaultTopicResolver implements TopicResolver {
   public readonly syncTopicPattern?: RegExp;
   public readonly awarenessTopicPattern?: RegExp;
   public readonly controlTopicPattern?: RegExp;

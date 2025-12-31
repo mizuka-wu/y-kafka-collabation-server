@@ -23,6 +23,11 @@ const messageHandlers: Record<ProtocolMessageType, ProtocolMessageHandler> = {
 };
 
 /**
+ * 默认的协议的相关消息在 socketio 内的事件名称
+ */
+export const ProtocolMessageEventName = 'protocol-message';
+
+/**
  * 解析 Yjs 消息并返回需要回复的 payload（例如 SyncStep2）。
  */
 export const decodeMessage = (
