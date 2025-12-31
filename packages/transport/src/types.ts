@@ -2,6 +2,7 @@ import type { Socket } from 'socket.io';
 import type {
   ProtocolMessageMetadata,
   ProtocolMessageType,
+  decodeMetadataFromMessage,
 } from '@y-kafka-collabation-server/protocol';
 
 export enum Channel {
@@ -11,15 +12,6 @@ export enum Channel {
   Awareness = 'awareness',
   /** 控制命令 */
   Control = 'control',
-}
-
-/**
- * 客户端发送的消息。
- */
-export interface ClientOutgoingMessage {
-  payload: Uint8Array | Buffer | string;
-  metadata: ProtocolMessageMetadata;
-  channel: Channel;
 }
 
 /**
@@ -125,10 +117,7 @@ export interface RoomRegistry {
  */
 export interface TransportSocketHandlers {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
-  handleClientMessage: (
-    socket: Socket,
-    message: ClientOutgoingMessage,
-  ) => Promise<void>;
+  handleClientMessage: (socket: Socket, message: Uint8Array) => Promise<void>;
   handleDisconnect: (socket: Socket) => void;
 }
 
@@ -139,7 +128,7 @@ export interface CreateSocketHandlersDeps {
   /** Kafka 生产者 */
   kafkaProducer: KafkaProducer;
   /** 协议编解码器 */
-  protocolCodec: ProtocolCodecAdapter;
+  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   /** Topic 解析器 */
   topicResolver: TopicResolver;
 }
@@ -150,7 +139,7 @@ export interface CreateSocketHandlersDeps {
 export interface CreateTransportSocketHandlersDeps {
   roomRegistry: RoomRegistry;
   kafkaProducer: KafkaProducer;
-  protocolCodec: ProtocolCodecAdapter;
+  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   topicResolver: TopicResolver;
 }
 
@@ -158,7 +147,7 @@ export interface CreateTransportSocketHandlersDeps {
 export interface StartKafkaConsumerDeps {
   kafkaConsumer: KafkaConsumer;
   roomRegistry: RoomRegistry;
-  protocolCodec: ProtocolCodecAdapter;
+  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   topicResolver: TopicResolver;
   onMessageEvent?: ProtocolMessageType | string;
   onMessageProcessed?: (
