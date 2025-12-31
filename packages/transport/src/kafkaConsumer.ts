@@ -31,10 +31,8 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
   const {
     kafkaConsumer,
     roomRegistry,
-    protocolCodec,
-    onMessageEvent = ProtocolMessageEventName,
-    onMessageProcessed,
     topicResolver,
+    decodeMetadataFromMessage,
   } = deps;
 
   /**
@@ -61,46 +59,36 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
       if (!message.value) {
         return;
       }
-      let metadata;
-      let payload;
       try {
-        ({ metadata, payload } = protocolCodec.decodeKafkaEnvelope(
-          toUint8Array(message.value),
-        ));
-      } catch (error) {
-        console.error('Invalid Kafka envelope', error);
-        return;
-      }
+        const metadata = decodeMetadataFromMessage(toUint8Array(message.value));
 
-      const { roomId, docId, subdocId } = metadata;
+        const { roomId, docId, subdocId } = metadata;
 
-      if (!roomId || !docId) {
-        console.warn('Kafka message missing roomId/docId metadata', {
+        if (!roomId || !docId) {
+          console.warn('Kafka message missing roomId/docId metadata', {
+            topic: message.topic,
+            metadata,
+          });
+          return;
+        }
+
+        const sockets = roomRegistry.getSockets(roomId, docId, subdocId);
+        if (sockets.length === 0) {
+          return;
+        }
+
+        const eventPayload: ProtocolMessageEventPayload = {
           topic: message.topic,
-          metadata,
+          partition: message.partition,
+          offset: message.offset,
+          message: message.value,
+        };
+
+        sockets.forEach((socket) => {
+          socket.emit(ProtocolMessageEventName, eventPayload);
         });
-        return;
-      }
-
-      const sockets = roomRegistry.getSockets(roomId, docId, subdocId);
-      if (sockets.length === 0) {
-        return;
-      }
-
-      const eventPayload: ProtocolMessageEventPayload = {
-        topic: message.topic,
-        partition: message.partition,
-        offset: message.offset,
-        metadata,
-        payload,
-      };
-
-      sockets.forEach((socket) => {
-        socket.emit(ProtocolMessageEventName, eventPayload);
-      });
-
-      if (onMessageProcessed) {
-        await onMessageProcessed(metadata, payload);
+      } catch (e) {
+        console.error(e);
       }
     },
   });
