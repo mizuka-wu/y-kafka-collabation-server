@@ -1,5 +1,6 @@
 import {
   ProtocolMessageEventName,
+  decodeMetadataFromMessage,
   type ProtocolMessageEventPayload,
 } from '@y-kafka-collabation-server/protocol';
 import type {
@@ -28,12 +29,7 @@ function getTopicsFromRoomId(roomId: string, topicResolver: TopicResolver) {
  * @param {StartKafkaConsumerDeps}
  */
 export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
-  const {
-    kafkaConsumer,
-    roomRegistry,
-    topicResolver,
-    decodeMetadataFromMessage,
-  } = deps;
+  const { kafkaConsumer, roomRegistry, topicResolver } = deps;
 
   /**
    * 初始化的

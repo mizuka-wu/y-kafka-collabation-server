@@ -1,8 +1,5 @@
 import type { Socket } from 'socket.io';
-import type {
-  ProtocolMessageMetadata,
-  decodeMetadataFromMessage,
-} from '@y-kafka-collabation-server/protocol';
+import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
 export enum Channel {
   /** 协同链路 */
@@ -126,8 +123,6 @@ export interface CreateSocketHandlersDeps {
   roomRegistry: RoomRegistry;
   /** Kafka 生产者 */
   kafkaProducer: KafkaProducer;
-  /** 协议编解码器 */
-  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   /** Topic 解析器 */
   topicResolver: TopicResolver;
 }
@@ -138,7 +133,6 @@ export interface CreateSocketHandlersDeps {
 export interface CreateTransportSocketHandlersDeps {
   roomRegistry: RoomRegistry;
   kafkaProducer: KafkaProducer;
-  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   topicResolver: TopicResolver;
 }
 
@@ -146,6 +140,5 @@ export interface CreateTransportSocketHandlersDeps {
 export interface StartKafkaConsumerDeps {
   kafkaConsumer: KafkaConsumer;
   roomRegistry: RoomRegistry;
-  decodeMetadataFromMessage: typeof decodeMetadataFromMessage;
   topicResolver: TopicResolver;
 }
