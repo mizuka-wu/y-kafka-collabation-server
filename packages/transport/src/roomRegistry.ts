@@ -1,5 +1,6 @@
+import mitt, { type Emitter } from 'mitt';
 import type { Socket } from 'socket.io';
-import type { RoomAssignment, RoomRegistry } from './types';
+import type { RoomAssignment, RoomPresenceChange, RoomRegistry } from './types';
 
 /**
  * 房间注册表，用于管理 Socket 与房间/子文档的映射关系
@@ -20,12 +21,28 @@ export class DefaultRoomRegistry implements RoomRegistry {
   private docIndex = new Map<string, Set<Socket>>();
   /** roomId + docId + subdocId → sockets，定位子文档。 */
   private subdocIndex = new Map<string, Set<Socket>>();
+  /** 房间事件 emitter */
+  private emitter: Emitter<{
+    'room-change': RoomPresenceChange;
+  }> = mitt();
 
   /** 定期清理断开连接的 Socket 的定时器 */
   private cleanupTimer?: NodeJS.Timeout;
 
   constructor(private readonly cleanupIntervalMs: number = 30000) {
     this.scheduleCleanup();
+  }
+
+  /**
+   * 回调注册
+   * @param listener
+   * @returns
+   */
+  onRoomChange(listener: (change: RoomPresenceChange) => void): () => void {
+    this.emitter.on('room-change', listener);
+    return () => {
+      this.emitter.off('room-change', listener);
+    };
   }
 
   /**
@@ -37,8 +54,16 @@ export class DefaultRoomRegistry implements RoomRegistry {
     this.remove(socket);
     this.socketAssignments.set(socket, assignment);
 
-    const roomSet = this.getIndexSet(this.roomIndex, assignment.roomId);
+    const roomId = assignment.roomId;
+    const existingRoomSet = this.roomIndex.get(roomId);
+    const wasEmpty = !existingRoomSet || existingRoomSet.size === 0;
+
+    const roomSet = this.getIndexSet(this.roomIndex, roomId);
     roomSet.add(socket);
+
+    if (wasEmpty) {
+      this.emitRoomChange({ type: 'added', roomId });
+    }
 
     const docKey = this.getDocKey(assignment.roomId, assignment.docId);
     const docSet = this.getIndexSet(this.docIndex, docKey);
@@ -62,7 +87,15 @@ export class DefaultRoomRegistry implements RoomRegistry {
     }
     this.socketAssignments.delete(socket);
 
-    this.deleteFromIndex(this.roomIndex, assignment.roomId, socket);
+    const roomRemoved = this.deleteFromIndex(
+      this.roomIndex,
+      assignment.roomId,
+      socket,
+    );
+
+    if (roomRemoved) {
+      this.emitRoomChange({ type: 'removed', roomId: assignment.roomId });
+    }
 
     const docKey = this.getDocKey(assignment.roomId, assignment.docId);
     this.deleteFromIndex(this.docIndex, docKey, socket);
@@ -117,15 +150,17 @@ export class DefaultRoomRegistry implements RoomRegistry {
     index: Map<string, Set<Socket>>,
     key: string,
     socket: Socket,
-  ): void {
+  ): boolean {
     const set = index.get(key);
     if (!set) {
-      return;
+      return false;
     }
     set.delete(socket);
     if (set.size === 0) {
       index.delete(key);
+      return true;
     }
+    return false;
   }
 
   prune(): void {
@@ -155,5 +190,11 @@ export class DefaultRoomRegistry implements RoomRegistry {
     this.roomIndex.clear();
     this.docIndex.clear();
     this.subdocIndex.clear();
+
+    this.emitter.all.clear();
+  }
+
+  private emitRoomChange(change: RoomPresenceChange): void {
+    this.emitter.emit('room-change', change);
   }
 }
