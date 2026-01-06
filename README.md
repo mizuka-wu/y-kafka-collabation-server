@@ -29,11 +29,11 @@ flowchart LR
     Runtime -->|HTTP/Snapshot 回传| Provider
 ```
 
-- **上行链路（Client → Server → Kafka）**：客户端生成 doc/awareness buffer，经 Runtime 编解码后写入 Kafka；写入成功即返回 `(topic, partition, offset)` 给发起客户端作为最新 version。
-- **下行链路（Server ← Kafka）**：Runtime 订阅 `sync/awareness` topic，消费后根据 `RoomRoadMap` 将消息广播给当前服务器上所有相关连接，保证 Yjs 状态一致。
-- **服务器 ↔ Persistence**：  
-  - 写入：Runtime 订阅 `sync` 消息，定期把增量合并为 Yjs 基线（含无 GC 的完整 `Y.Doc`），写入 MySQL，并将大快照同步到 S3。  
-  - 回读：客户端初始化时默认不带 version，Runtime 调用 Persistence 获取最近的 snapshot + history，再结合 Kafka tail 让客户端恢复最新状态。
+- **上行链路（Client → Server → Kafka）**：Provider 直接生成 `[metadataLength][metadata JSON][payload]` envelope，Runtime 只校验 metadata（room/doc/channel 等）并调用 Kafka producer。写入成功后将 `(topic, partition, offset)` ACK 给发起客户端，客户端把 offset 当作最新 version。
+- **下行链路（Server ← Kafka）**：Runtime 订阅 `sync/awareness` topic，得到 envelope 后解 metadata + payload，并根据 `RoomRoadMap` 将原始 yjs payload 转发给当前服务器上的相关连接，保持状态一致。
+- **Kafka → Persistence / Runtime ↔ Persistence**：  
+  - 写入：Persistence 订阅 `sync-{room}`，将 doc channel 增量落 MySQL/S3，并维护 snapshot/history。Runtime 不再额外回写持久层。  
+  - 回读：客户端初始化 version 缺省时，由 Runtime 向 Persistence 请求 snapshot + history，再把最新 offset（或 Kafka tail）一并返给客户端，使其衔接实时链路。
 
 ## 2. 角色与职责
 
@@ -49,21 +49,22 @@ flowchart LR
 
 ## 3. 数据流细化
 
-1. **客户端 → 服务器**  
-   - Provider 发送 doc/awareness buffer。  
-   - Runtime 在握手阶段补 `roomId/docId/senderId/channel` 等 metadata。
-2. **服务器 → Kafka**  
-   - 调用 `protocol.encodeKafkaEnvelope(metadata, payload)`，并通过 TopicResolver 得到目标 topic。  
-   - Kafka key 固定为 `docId`，保证 partition 内顺序。
-3. **Kafka → 服务器**  
-   - Runtime 消费 `sync/awareness` topic，解析出 metadata。  
-   - 通过 `RoomRoadMap(roomId, docId, subdocId)` 查询本机需要广播的 Socket/HTTP 连接，再推送协议事件。
-4. **服务器 → Persistence**  
-   - `channel === 'doc'` 的消息写入 `PersistenceCoordinator`：存增量、刷新 snapshot，超大 payload 上传 S3。
-5. **服务器 ← Persistence（客户端初始化）**  
-   - 客户端以 `version` 缺省（或 `undefined`）发起同步。  
-   - Runtime 请求 `recoverSnapshot` + `exportHistory`，返回 Base64 snapshot + updates，并告知补齐的 Kafka offset。  
-   - 客户端应用后进入实时链路，继续消耗 Kafka tail。
+1. **客户端 → Runtime**  
+   - Provider/Transport 直接调用 `protocol.encodeKafkaEnvelope(metadata, payload)`，在发送前就把 `roomId/docId/subdocId/senderId/channel/version` 等 metadata 填好。  
+   - Runtime 只负责校验 metadata 与连接是否匹配，并根据 `RoomRoadMap`/鉴权策略决定是否接受。
+2. **Runtime → Kafka**  
+   - Runtime 将收到的 envelope 原样写入 Kafka，TopicResolver 通过 metadata 选定 topic，Kafka key 固定为 `docId` 以保持 partition 内顺序。  
+   - Kafka ACK 后，Runtime 把 `(topic, partition, offset)` 返回给发起客户端，客户端据此更新 version。
+3. **Kafka → Runtime → 客户端**  
+   - Runtime 的 Kafka consumer 解 envelope，取出 metadata 与原始 yjs payload。  
+   - 通过 `RoomRoadMap(roomId, docId, subdocId)` 找到本机需要广播的 Socket/HTTP 连接，直接下发 yjs payload（客户端可无缝复用 yjs handler）。  
+   - 如有需要，Runtime 可把 offset/metadata 附带给广播对象，用于侧写日志或状态同步。
+4. **Kafka → Persistence**  
+   - Persistence 订阅 `channel === 'doc'` 的 topic，按 metadata 维度写入增量、刷新 snapshot，并将大体积快照同步到对象存储（S3 等）。  
+   - Persistence 维护“已覆盖到的 offset”，面对 Kafka retention 也能通过 snapshot + history 恢复。
+5. **Runtime ↔ Persistence（客户端初始化）**  
+   - 当客户端以 `version` 缺省发起同步时，Runtime 调用 `recoverSnapshot` + `exportHistory` 获取最近快照、缺失增量以及最新 offset。  
+   - Runtime 将 snapshot/history/offset 返回给客户端（或直接帮忙写入 Kafka），客户端应用后即可接入实时消费；若环境允许，也可以让客户端直接访问 Persistence API。
 
 ## 4. 基础概念与运行时设施
 
