@@ -26,10 +26,9 @@ export function encodeMessage(
   // 写入 metadata
   const metadataJson = JSON.stringify(metadata);
   const metadataBytes = textEncoder.encode(metadataJson);
-  const metadataLengthBuffer = new ArrayBuffer(4);
-  const metadataLengthView = new DataView(metadataLengthBuffer);
-  metadataLengthView.setUint32(0, metadataBytes.length, true); // 固定 4 字节 little endian
-  encoding.writeUint8Array(encoder, new Uint8Array(metadataLengthBuffer)); // metadata 字节长度
+  const metadataBytesLength = metadataBytes.length;
+
+  encoding.writeUint16(encoder, metadataBytesLength); // 长度
   encoding.writeUint8Array(encoder, metadataBytes); // metadata 内容
 
   // 根据第三个参数的类型，写入相应的数据
@@ -40,4 +39,45 @@ export function encodeMessage(
   }
 
   return encoding.toUint8Array(encoder);
+}
+
+export function decodeMessageType(
+  data: Uint8Array | Buffer,
+): ProtocolMessageType {
+  const decoder = decoding.createDecoder(data);
+  // 读取类型
+  const messageType = decoding.readVarUint(decoder);
+  return messageType;
+}
+
+export function decodeMetadata(data: Uint8Array | Buffer) {
+  const decoder = decoding.createDecoder(data);
+
+  // 跳过类型字段
+  decoding.readVarUint(decoder);
+
+  // 读取 metadata 长度
+  const metadataLength = decoding.readUint16(decoder);
+
+  // 读取 metadata 内容
+  const metadataBytes = decoding.readUint8Array(decoder, metadataLength);
+  const metadataJson = textDecoder.decode(metadataBytes);
+  const metadata: ProtocolMessageMetadata = JSON.parse(metadataJson);
+
+  return metadata;
+}
+
+export function decodePayload(data: Uint8Array | Buffer): Uint8Array {
+  const decoder = decoding.createDecoder(data);
+
+  // 跳过类型字段
+  decoding.readVarUint(decoder);
+
+  // 跳过 metadata 长度
+  const metadataLength = decoding.readUint16(decoder);
+
+  // 跳过 metadata 内容
+  decoding.readUint8Array(decoder, metadataLength);
+
+  // 返回剩余部分
 }

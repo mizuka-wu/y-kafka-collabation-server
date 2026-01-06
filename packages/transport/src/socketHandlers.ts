@@ -1,32 +1,21 @@
-import type { Socket } from 'socket.io';
+import { decodeMetadataFromMessage } from '@y-kafka-collabation-server/protocol';
 import {
-  ClientOutgoingMessage,
-  CreateSocketHandlersDeps,
-  RoomAssignment,
+  type CreateSocketHandlersDeps,
+  type RoomAssignment,
+  Channel,
 } from './types';
+import type { Socket } from 'socket.io';
 import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
-
-const textEncoder = new TextEncoder();
-
-const toUint8Array = (payload: Uint8Array | Buffer | string): Uint8Array => {
-  if (typeof payload === 'string') {
-    return textEncoder.encode(payload);
-  }
-  if (payload instanceof Uint8Array) {
-    return payload;
-  }
-  return new Uint8Array(payload);
-};
 
 const resolveTopic = (
   channel: string | undefined,
   metadata: ProtocolMessageMetadata,
   resolver: CreateSocketHandlersDeps['topicResolver'],
 ): string => {
-  if (channel === 'awareness') {
+  if (channel === Channel.Awareness) {
     return resolver.resolveAwarenessTopic(metadata);
   }
-  if (channel === 'control' && resolver.resolveControlTopic) {
+  if (channel === Channel.Control && resolver.resolveControlTopic) {
     return resolver.resolveControlTopic(metadata);
   }
   return resolver.resolveSyncTopic(metadata);
@@ -36,13 +25,10 @@ export const createSocketMessageTransportHandlers = (
   deps: CreateSocketHandlersDeps,
 ): {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
-  handleClientMessage: (
-    socket: Socket,
-    message: ClientOutgoingMessage,
-  ) => Promise<void>;
+  handleClientMessage: (socket: Socket, message: Uint8Array) => Promise<void>;
   handleDisconnect: (socket: Socket) => void;
 } => {
-  const { kafkaProducer, protocolCodec, roomRegistry, topicResolver } = deps;
+  const { kafkaProducer, roomRegistry, topicResolver } = deps;
 
   return {
     handleConnection(socket, assignment) {
@@ -51,15 +37,21 @@ export const createSocketMessageTransportHandlers = (
     },
 
     async handleClientMessage(socket, message) {
-      const metadata = message.metadata;
+      try {
+        const metadata = decodeMetadataFromMessage(message);
 
-      const topic = resolveTopic(message.channel, metadata, topicResolver);
-      const payload = toUint8Array(message.payload);
-      const envelope = protocolCodec.encodeKafkaEnvelope(payload, metadata);
-      await kafkaProducer.produce({
-        topic,
-        messages: [{ value: envelope }],
-      });
+        /**
+         * 根据消息类型决定 channel
+         */
+
+        const topic = resolveTopic(message.channel, metadata, topicResolver);
+        await kafkaProducer.produce({
+          topic,
+          messages: [{ value: message }],
+        });
+      } catch (e) {
+        console.error(e);
+      }
     },
 
     handleDisconnect(socket) {
