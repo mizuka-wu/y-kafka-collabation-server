@@ -6,9 +6,7 @@
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 
-import { type Encoder } from 'lib0/encoding';
-
-import { ProtocolMessageType, type ProtocolMessageMetadata } from './types';
+import { type ProtocolMessageMetadata } from './types';
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
