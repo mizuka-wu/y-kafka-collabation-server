@@ -43,6 +43,6 @@ export const decodeEnvelope = (
   };
 };
 
-export const decodeMetadataFromMessage = (
+export const decodeMetadataFromEnvelope = (
   message: Uint8Array | ArrayBuffer,
 ): ProtocolMessageMetadata => readMetadata(toArrayBuffer(message));
