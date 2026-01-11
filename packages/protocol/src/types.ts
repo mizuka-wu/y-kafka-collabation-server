@@ -44,7 +44,7 @@ export interface ProtocolMessageMetadata {
  */
 export interface ProtocolCodecContext {
   doc: Y.Doc;
-  awareness: awarenessProtocol.Awareness;
+  awareness?: awarenessProtocol.Awareness;
   synced: boolean;
   /**
    * 更新同步状态（SyncStep2 收到后由上层存储）。
