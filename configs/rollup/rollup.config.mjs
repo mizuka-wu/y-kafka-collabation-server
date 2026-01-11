@@ -27,7 +27,6 @@ export const config = (options) => {
           preferBuiltins: true
         }
       ),
-      commonjs(),
       typescript({
         tsconfig: './tsconfig.json',
         declaration: true,
