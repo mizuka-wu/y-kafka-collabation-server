@@ -1,5 +1,5 @@
 import * as encoding from 'lib0/encoding';
-import * as syncProtocol from 'y-protocols/sync.js';
+import * as syncProtocol from '@y/protocols/sync';
 import { ProtocolMessageHandler, ProtocolMessageType } from '../types';
 
 export const syncHandler: ProtocolMessageHandler = (

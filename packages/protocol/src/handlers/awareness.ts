@@ -1,4 +1,4 @@
-import * as awarenessProtocol from 'y-protocols/awareness';
+import * as awarenessProtocol from '@y/protocols/awareness';
 import * as decoding from 'lib0/decoding';
 import { ProtocolMessageHandler } from '../types';
 
