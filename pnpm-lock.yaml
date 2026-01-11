@@ -365,11 +365,11 @@ importers:
   packages/protocol:
     dependencies:
       '@y/protocols':
-        specifier: 1.0.6-0
-        version: 1.0.6-0
+        specifier: 1.0.6-3
+        version: 1.0.6-3(@y/y@14.0.0-16)
       '@y/websocket':
-        specifier: 4.0.0-0
-        version: 4.0.0-0(@y/y@14.0.0-16)
+        specifier: 4.0.0-3
+        version: 4.0.0-3(@y/y@14.0.0-16)
       lib0:
         specifier: ^0.2.115-6
         version: 0.2.116
@@ -4652,15 +4652,6 @@ packages:
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
     dev: true
 
-  /@y/protocols@1.0.6-0:
-    resolution: {integrity: sha512-vT/b1ck7gkMm/HPu4PdqxQ4yx1gy6Brvf6vC5mBVIqu0Ls+SBXUHEjH4mhzCh+xRWFKRRuJ26zYicgL97p5DJg==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
-    peerDependencies:
-      yjs: 14.0.0-* || ^14
-    dependencies:
-      lib0: 0.2.116
-    dev: false
-
   /@y/protocols@1.0.6-3(@y/y@14.0.0-16):
     resolution: {integrity: sha512-ZVp2am1/rYpvRx040m+5i1nj8KUfjDjdGuK+zqe5dicEUcz/cKEFP/+pA+Ap262qBksJx++HjlOKPhuj6of05Q==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
@@ -4671,16 +4662,15 @@ packages:
       lib0: 0.2.116
     dev: false
 
-  /@y/websocket@4.0.0-0(@y/y@14.0.0-16):
-    resolution: {integrity: sha512-Lid5rwtTb75xgnAF61aTSKMzYsHtOWOpFRGd2psvyyLXPrEQssVudGFIM/CCObKXXxCLKc8UfmxHAPDMOGLQMA==}
+  /@y/websocket@4.0.0-3(@y/y@14.0.0-16):
+    resolution: {integrity: sha512-R5Ul34LVx6yNS7QGsX8lYbguZXETVegQAD+03dfnvITlaFBQMsLm0l06tyzm6cAILw8+C8vQEqOTa/PNL1hOUA==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
     peerDependencies:
-      yjs: ^14.0.0-6
+      '@y/y': ^14.0.0-16
     dependencies:
       '@y/protocols': 1.0.6-3(@y/y@14.0.0-16)
+      '@y/y': 14.0.0-16
       lib0: 0.2.116
-    transitivePeerDependencies:
-      - '@y/y'
     dev: false
 
   /@y/y@14.0.0-16:

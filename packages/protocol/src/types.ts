@@ -2,16 +2,23 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as awarenessProtocol from '@y/protocols/awareness';
 
+import {
+  messageAuth,
+  messageAwareness,
+  messageQueryAwareness,
+  messageSync,
+} from '@y/websocket';
+
 import type * as Y from '@y/y';
 
 /**
  * 与 y-websocket 保持一致的消息类型编号。
  */
 export enum ProtocolMessageType {
-  Sync = 0,
-  Awareness = 1,
-  Auth = 2,
-  QueryAwareness = 3,
+  Sync = messageSync,
+  Awareness = messageAwareness,
+  Auth = messageAuth,
+  QueryAwareness = messageQueryAwareness,
 }
 
 /**
