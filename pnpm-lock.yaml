@@ -364,15 +364,15 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@y/protocols':
+        specifier: 1.0.6-0
+        version: 1.0.6-0
+      '@y/websocket':
+        specifier: 4.0.0-0
+        version: 4.0.0-0(@y/y@14.0.0-16)
       lib0:
         specifier: ^0.2.115-6
         version: 0.2.116
-      y-protocols:
-        specifier: ^1.0.6-3
-        version: 1.0.7(yjs@13.6.28)
-      yjs:
-        specifier: ^13.6.28
-        version: 13.6.28
     devDependencies:
       '@types/node':
         specifier: ^22.15.3
@@ -386,6 +386,9 @@ importers:
       '@y-kafka-collabation-server/typescript-config':
         specifier: workspace:*
         version: link:../../configs/typescript-config
+      '@y/y':
+        specifier: 14.0.0-16
+        version: 14.0.0-16
       eslint:
         specifier: ^9.31.0
         version: 9.39.2
@@ -4649,6 +4652,43 @@ packages:
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
     dev: true
 
+  /@y/protocols@1.0.6-0:
+    resolution: {integrity: sha512-vT/b1ck7gkMm/HPu4PdqxQ4yx1gy6Brvf6vC5mBVIqu0Ls+SBXUHEjH4mhzCh+xRWFKRRuJ26zYicgL97p5DJg==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      yjs: 14.0.0-* || ^14
+    dependencies:
+      lib0: 0.2.116
+    dev: false
+
+  /@y/protocols@1.0.6-3(@y/y@14.0.0-16):
+    resolution: {integrity: sha512-ZVp2am1/rYpvRx040m+5i1nj8KUfjDjdGuK+zqe5dicEUcz/cKEFP/+pA+Ap262qBksJx++HjlOKPhuj6of05Q==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      '@y/y': ^14.0.0-16 || ^14
+    dependencies:
+      '@y/y': 14.0.0-16
+      lib0: 0.2.116
+    dev: false
+
+  /@y/websocket@4.0.0-0(@y/y@14.0.0-16):
+    resolution: {integrity: sha512-Lid5rwtTb75xgnAF61aTSKMzYsHtOWOpFRGd2psvyyLXPrEQssVudGFIM/CCObKXXxCLKc8UfmxHAPDMOGLQMA==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      yjs: ^14.0.0-6
+    dependencies:
+      '@y/protocols': 1.0.6-3(@y/y@14.0.0-16)
+      lib0: 0.2.116
+    transitivePeerDependencies:
+      - '@y/y'
+    dev: false
+
+  /@y/y@14.0.0-16:
+    resolution: {integrity: sha512-4zwbLnLannzUiEdJn9r3IS2FCVdHqADZHLqAivzAuKeoCGZ55JUFebp/YUtrYuTE2ZaBgctxpzulqAAHaahtIA==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    dependencies:
+      lib0: 0.2.116
+
   /accepts@1.3.8:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
@@ -6960,7 +7000,6 @@ packages:
 
   /isomorphic.js@0.2.5:
     resolution: {integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==}
-    dev: false
 
   /istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
@@ -7581,7 +7620,6 @@ packages:
     hasBin: true
     dependencies:
       isomorphic.js: 0.2.5
-    dev: false
 
   /lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
