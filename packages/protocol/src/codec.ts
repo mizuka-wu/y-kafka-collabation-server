@@ -1,7 +1,7 @@
 /**
  * 标准的编码和解码器
  * 核心功能是提供把 yjs 的相关状态/metadata 编码成二进制格式，方便各类传输
- * 核心结构 [messageType:1][metadataLength:4 little endian][metadataBytes (JSON)][payloadBytes (不含 messageType)?]
+ * 核心结构 [messageType:1][metadataLength:2 little endian][metadataBytes (JSON)][payloadBytes (不含 messageType)?]
  */
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
