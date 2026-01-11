@@ -59,7 +59,7 @@ export const config = (options = {}) => {
         declarationDir: 'dist',
         compilerOptions: {
           module: 'esnext',
-          moduleResolution: 'node',
+          moduleResolution: 'bundler',
         },
       }),
     ],
