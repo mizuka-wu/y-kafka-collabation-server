@@ -1,6 +1,6 @@
 import {
   ProtocolMessageEventName,
-  decodeMetadataFromMessage,
+  decodeMetadataFromEnvelope,
   type ProtocolMessageEventPayload,
 } from '@y-kafka-collabation-server/protocol';
 import type {
@@ -56,9 +56,9 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
         return;
       }
       try {
-        const metadata = decodeMetadataFromMessage(toUint8Array(message.value));
+        const metadata = decodeMetadataFromEnvelope(message.value);
 
-        const { roomId, docId, subdocId } = metadata;
+        const { roomId, docId, parentId } = metadata;
 
         if (!roomId || !docId) {
           console.warn('Kafka message missing roomId/docId metadata', {
@@ -68,7 +68,7 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
           return;
         }
 
-        const sockets = roomRegistry.getSockets(roomId, docId, subdocId);
+        const sockets = roomRegistry.getSockets(roomId, docId, parentId);
         if (sockets.length === 0) {
           return;
         }

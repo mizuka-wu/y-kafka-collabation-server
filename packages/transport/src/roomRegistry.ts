@@ -19,8 +19,6 @@ export class DefaultRoomRegistry implements RoomRegistry {
   private roomIndex = new Map<string, Set<Socket>>();
   /** roomId + docId → sockets，定位主文档。 */
   private docIndex = new Map<string, Set<Socket>>();
-  /** roomId + docId + subdocId → sockets，定位子文档。 */
-  private subdocIndex = new Map<string, Set<Socket>>();
   /** 房间事件 emitter */
   private emitter: Emitter<{
     'room-change': RoomPresenceChange;
@@ -68,16 +66,6 @@ export class DefaultRoomRegistry implements RoomRegistry {
     const docKey = this.getDocKey(assignment.roomId, assignment.docId);
     const docSet = this.getIndexSet(this.docIndex, docKey);
     docSet.add(socket);
-
-    if (assignment.subdocId) {
-      const subKey = this.getSubdocKey(
-        assignment.roomId,
-        assignment.docId,
-        assignment.subdocId,
-      );
-      const subSet = this.getIndexSet(this.subdocIndex, subKey);
-      subSet.add(socket);
-    }
   }
 
   remove(socket: Socket): void {
@@ -99,22 +87,9 @@ export class DefaultRoomRegistry implements RoomRegistry {
 
     const docKey = this.getDocKey(assignment.roomId, assignment.docId);
     this.deleteFromIndex(this.docIndex, docKey, socket);
-
-    if (assignment.subdocId) {
-      const subKey = this.getSubdocKey(
-        assignment.roomId,
-        assignment.docId,
-        assignment.subdocId,
-      );
-      this.deleteFromIndex(this.subdocIndex, subKey, socket);
-    }
   }
 
-  getSockets(roomId: string, docId?: string, subdocId?: string): Socket[] {
-    if (docId && subdocId) {
-      const subKey = this.getSubdocKey(roomId, docId, subdocId);
-      return Array.from(this.subdocIndex.get(subKey) ?? []);
-    }
+  getSockets(roomId: string, docId?: string): Socket[] {
     if (docId) {
       const docKey = this.getDocKey(roomId, docId);
       return Array.from(this.docIndex.get(docKey) ?? []);
@@ -128,14 +103,6 @@ export class DefaultRoomRegistry implements RoomRegistry {
 
   private getDocKey(roomId: string, docId: string): string {
     return `${roomId}::${docId}`;
-  }
-
-  private getSubdocKey(
-    roomId: string,
-    docId: string,
-    subdocId: string,
-  ): string {
-    return `${roomId}::${docId}::${subdocId}`;
   }
 
   private getIndexSet(
@@ -193,8 +160,6 @@ export class DefaultRoomRegistry implements RoomRegistry {
     this.socketAssignments.clear();
     this.roomIndex.clear();
     this.docIndex.clear();
-    this.subdocIndex.clear();
-
     this.emitter.all.clear();
   }
 

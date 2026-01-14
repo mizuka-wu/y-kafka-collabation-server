@@ -84,7 +84,7 @@ export interface ProtocolCodecAdapter {
 export interface RoomAssignment {
   roomId: string;
   docId: string;
-  subdocId?: string;
+  parentId?: string;
 }
 
 /** 房间加入/移除事件。 */
@@ -100,7 +100,7 @@ export type RoomPresenceChange = {
 export interface RoomRegistry {
   add(socket: Socket, assignment: RoomAssignment): void;
   remove(socket: Socket): void;
-  getSockets(roomId: string, docId?: string, subdocId?: string): Socket[];
+  getSockets(roomId: string, docId?: string, parentId?: string): Socket[];
   getRooms(): string[];
   onRoomChange(listener: (change: RoomPresenceChange) => void): () => void;
 }

@@ -3,7 +3,7 @@ import { Column, Entity, PrimaryGeneratedColumn, Index } from 'typeorm';
 export type PersistenceDocId = string;
 
 @Entity({ name: 'document_snapshots' })
-@Index(['docId', 'subdocId', 'version'], { unique: true })
+@Index(['docId', 'parentId', 'version'], { unique: true })
 export class DocumentSnapshot {
   @PrimaryGeneratedColumn('increment')
   id!: number;
@@ -12,7 +12,7 @@ export class DocumentSnapshot {
   docId!: string;
 
   @Column({ type: 'varchar', length: 128, nullable: true })
-  subdocId?: string;
+  parentId?: string;
 
   @Column({ type: 'varchar', length: 64 })
   version!: string;
@@ -47,7 +47,7 @@ export class UpdateHistory {
   docId!: string;
 
   @Column({ type: 'varchar', length: 128, nullable: true })
-  subdocId?: string;
+  parentId?: string;
 
   @Column({ type: 'varchar', length: 64 })
   version!: string;
@@ -76,7 +76,7 @@ export interface PersistenceMetadata {
   docId: string;
   version: string;
   roomId?: string;
-  subdocId?: string;
+  parentId?: string;
   timestamp?: number;
   storageLocation?: string;
 }
@@ -84,7 +84,7 @@ export interface PersistenceMetadata {
 export interface PersistenceAdapter {
   loadLatestSnapshot(
     docId: string,
-    subdocId?: string,
+    parentId?: string,
   ): Promise<DocumentSnapshot | null>;
   persistSnapshot(metadata: PersistenceMetadata, binary: Buffer): Promise<void>;
   persistUpdate(
@@ -94,7 +94,7 @@ export interface PersistenceAdapter {
   ): Promise<void>;
   exportHistory(
     docId: string,
-    subdocId?: string,
+    parentId?: string,
     sinceVersion?: string,
   ): Promise<UpdateHistory[]>;
 }
