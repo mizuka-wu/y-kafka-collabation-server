@@ -1,4 +1,4 @@
-import { decodeMetadataFromMessage } from '@y-kafka-collabation-server/protocol';
+import { decodeMetadataFromEnvelope, decodeEnvelope } from '@y-kafka-collabation-server/protocol';
 import {
   type CreateSocketHandlersDeps,
   type RoomAssignment,
@@ -38,12 +38,12 @@ export const createSocketMessageTransportHandlers = (
 
     async handleClientMessage(socket, message) {
       try {
-        const metadata = decodeMetadataFromMessage(message);
+        const metadata = decodeMetadataFromEnvelope(message);
+        const me = 
 
         /**
          * 根据消息类型决定 channel
          */
-
         const topic = resolveTopic(message.channel, metadata, topicResolver);
         await kafkaProducer.produce({
           topic,
