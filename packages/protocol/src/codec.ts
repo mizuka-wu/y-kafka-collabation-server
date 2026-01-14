@@ -51,3 +51,12 @@ export function removeMetadata(message: ArrayBuffer): ArrayBuffer {
   const metadataLength = decoding.readUint16(decoder);
   return message.slice(decoder.pos + metadataLength);
 }
+
+/**
+ * 读取消息类型
+ */
+export function readMessageType(message: ArrayBuffer): number {
+  const ymessage = removeMetadata(message);
+  const decoder = decoding.createDecoder(new Uint8Array(ymessage));
+  return decoding.readVarUint(decoder);
+}

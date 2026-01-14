@@ -1,4 +1,9 @@
-import { appendMetadata, readMetadata, removeMetadata } from './codec';
+import {
+  appendMetadata,
+  readMetadata,
+  removeMetadata,
+  readMessageType,
+} from './codec';
 import type { ProtocolMessageMetadata } from './types';
 
 const toArrayBuffer = (input: Uint8Array | ArrayBuffer): ArrayBuffer => {
@@ -46,3 +51,7 @@ export const decodeEnvelope = (
 export const decodeMetadataFromEnvelope = (
   message: Uint8Array | ArrayBuffer,
 ): ProtocolMessageMetadata => readMetadata(toArrayBuffer(message));
+
+export const decodeMessageTypeFromEnvelope = (
+  message: Uint8Array | ArrayBuffer,
+): number => readMessageType(toArrayBuffer(message));

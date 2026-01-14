@@ -13,6 +13,7 @@ export {
   encodeEnvelope,
   decodeEnvelope,
   decodeMetadataFromEnvelope,
+  decodeMessageTypeFromEnvelope,
 } from './envelope';
 
 /**
