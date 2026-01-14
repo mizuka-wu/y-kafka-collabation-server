@@ -9,10 +9,6 @@ import type {
   TopicResolver,
 } from './types';
 
-const toUint8Array = (data: Uint8Array | Buffer): Uint8Array => {
-  return data instanceof Uint8Array ? data : new Uint8Array(data);
-};
-
 function getTopicsFromRoomId(roomId: string, topicResolver: TopicResolver) {
   const topics = [
     topicResolver.resolveSyncTopic(roomId),
