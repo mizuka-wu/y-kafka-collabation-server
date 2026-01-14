@@ -1,4 +1,4 @@
-import { decodeMetadataFromEnvelope, decodeEnvelope } from '@y-kafka-collabation-server/protocol';
+import { decodeMetadataFromEnvelope } from '@y-kafka-collabation-server/protocol';
 import {
   type CreateSocketHandlersDeps,
   type RoomAssignment,
@@ -25,7 +25,13 @@ export const createSocketMessageTransportHandlers = (
   deps: CreateSocketHandlersDeps,
 ): {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
-  handleClientMessage: (socket: Socket, message: Uint8Array) => Promise<void>;
+  handleClientMessage: (
+    socket: Socket,
+    message: {
+      channel: Channel;
+      value: Uint8Array;
+    },
+  ) => Promise<void>;
   handleDisconnect: (socket: Socket) => void;
 } => {
   const { kafkaProducer, roomRegistry, topicResolver } = deps;
@@ -38,16 +44,14 @@ export const createSocketMessageTransportHandlers = (
 
     async handleClientMessage(socket, message) {
       try {
-        const metadata = decodeMetadataFromEnvelope(message);
-        const me = 
-
+        const metadata = decodeMetadataFromEnvelope(message.value);
         /**
          * 根据消息类型决定 channel
          */
         const topic = resolveTopic(message.channel, metadata, topicResolver);
         await kafkaProducer.produce({
           topic,
-          messages: [{ value: message }],
+          messages: [{ value: message.value }],
         });
       } catch (e) {
         console.error(e);
