@@ -113,9 +113,9 @@ export interface ProtocolProviderOptions {
    */
   roomId?: string;
   /**
-   * 可选 subdocId，用于 metadata 精确路由。
+   * 可选 parentId，用于嵌套文档或分片路由。
    */
-  subdocId?: string;
+  parentId?: string;
   /**
    * 可选 docId（默认使用 doc.guid），在一个 room 承载多个 doc 时可显式指定。
    */
@@ -411,7 +411,7 @@ export class ProtocolProvider implements ProtocolCodecContext {
       this.queueMessage(reply, {
         roomId: metadata.roomId,
         docId: metadata.docId,
-        subdocId: metadata.subdocId,
+        parentId: metadata.parentId,
         version: metadata.version,
       });
     }
@@ -514,7 +514,7 @@ export class ProtocolProvider implements ProtocolCodecContext {
   ): ProtocolMessageMetadata {
     const roomId = this.options.roomId ?? 'default';
     const docId = this.options.docId ?? this.doc.guid;
-    const base = createMetadata(this.doc, roomId, docId, this.options.subdocId);
+    const base = createMetadata(this.doc, roomId, docId, this.options.parentId);
     const merged = {
       ...base,
       ...overrides,

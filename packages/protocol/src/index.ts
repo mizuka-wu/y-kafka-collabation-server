@@ -27,11 +27,11 @@ export const createMetadata = (
   doc: Y.Doc,
   roomId: string,
   docId: string,
-  subdocId?: string,
+  parentId?: string,
 ): ProtocolMessageMetadata => ({
   roomId,
   docId,
-  subdocId,
+  parentId,
   senderId: String(doc.clientID),
   timestamp: Date.now(),
 });

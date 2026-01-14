@@ -29,8 +29,8 @@ export interface ProtocolMessageMetadata {
   roomId: string;
   /** 文档 ID */
   docId: string;
-  /** 子文档 ID */
-  subdocId?: string;
+  /** 父文档 ID（用于嵌套结构） */
+  parentId?: string;
   /** 发送者 ID */
   senderId?: string;
   /** 协同版本 */
