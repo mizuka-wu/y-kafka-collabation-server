@@ -31,8 +31,7 @@
   },
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
-    "lib0": "^0.2.115-6",
-    "mitt": "^3.0.1",
+    "mitt": "3.0.1",
     "socket.io": "^4.7.2"
   }
 }

@@ -16,18 +16,23 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
     "prettier": "^3.2.5",
-    "turbo": "^2.6.3",
     "rollup": "^4.9.6",
-    "@rollup/plugin-typescript": "^11.1.6",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "tslib": "^2.6.2"
+    "tslib": "^2.6.2",
+    "turbo": "^2.6.3"
   },
   "packageManager": "pnpm@8.15.5",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@y/protocols": "1.0.6-3",
+    "@y/y": "14.0.0-16",
+    "lib0": "0.2.115-6"
   }
 }

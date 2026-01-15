@@ -24,14 +24,11 @@
     "@y-kafka-collabation-server/eslint-config": "workspace:*",
     "@y-kafka-collabation-server/rollup-config": "workspace:*",
     "@y-kafka-collabation-server/typescript-config": "workspace:*",
-    "@y/y": "14.0.0-16",
     "eslint": "^9.31.0",
     "typescript": "5.8.2",
     "vitest": "^1.2.1"
   },
   "dependencies": {
-    "@y/protocols": "1.0.6-3",
-    "@y/websocket": "4.0.0-3",
-    "lib0": "^0.2.115-6"
+    "@y/websocket": "4.0.0-3"
   }
 }
