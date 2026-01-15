@@ -113,7 +113,11 @@ export interface RoomRegistry {
  */
 export interface TransportSocketHandlers {
   handleConnection: (socket: Socket, assignment: RoomAssignment) => void;
-  handleClientMessage: (socket: Socket, message: Uint8Array) => Promise<void>;
+  handleClientMessage: (
+    socket: Socket,
+    channel: Channel,
+    message: Uint8Array,
+  ) => Promise<void>;
   handleDisconnect: (socket: Socket) => void;
 }
 
