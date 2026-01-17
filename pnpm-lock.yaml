@@ -17,6 +17,9 @@ importers:
       lib0:
         specifier: 0.2.115-6
         version: 0.2.115-6
+      ywasm:
+        specifier: ^0.25.0
+        version: 0.25.0
     devDependencies:
       '@rollup/plugin-commonjs':
         specifier: ^25.0.7
