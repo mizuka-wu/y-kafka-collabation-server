@@ -1,6 +1,8 @@
 import type { Socket } from 'socket.io';
 import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
+export const SOCKET_IO_EVENT_PREFIX = 'y-kafka-collabation-server';
+
 export enum Channel {
   /** 协同链路 */
   Sync = 'sync',

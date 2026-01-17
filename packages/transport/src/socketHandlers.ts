@@ -3,6 +3,7 @@ import {
   type CreateSocketHandlersDeps,
   type TransportSocketHandlers,
   Channel,
+  SOCKET_IO_EVENT_PREFIX,
 } from './types';
 import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
@@ -65,3 +66,20 @@ export const createSocketMessageTransportHandlers = (
     },
   };
 };
+
+export function getSocketIOEvent(channel: string) {
+  return `${SOCKET_IO_EVENT_PREFIX}-${channel}`;
+}
+
+export function getChannelFromSocketIOEvent(
+  socketIOEvent: string,
+): Channel | null {
+  const channel = socketIOEvent.replace(
+    `${SOCKET_IO_EVENT_PREFIX}-`,
+    '',
+  ) as Channel;
+  if (Object.values(Channel).includes(channel)) {
+    return channel;
+  }
+  return null;
+}
