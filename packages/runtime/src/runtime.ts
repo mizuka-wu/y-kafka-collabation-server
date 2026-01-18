@@ -132,7 +132,16 @@ export class YKafkaRuntime {
           password: redisConfig.password,
         });
       }
+
+      pubClient.on('error', (err) => {
+        console.error('Redis Pub Client Error:', err);
+      });
+
       const subClient = pubClient.duplicate();
+      subClient.on('error', (err) => {
+        console.error('Redis Sub Client Error:', err);
+      });
+
       adapter = createAdapter(pubClient, subClient, {
         key: redisConfig.keyPrefix || 'y-kafka-collabation',
       });

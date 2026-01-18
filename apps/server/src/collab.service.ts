@@ -30,7 +30,11 @@ export class CollabService implements OnModuleInit, OnModuleDestroy {
           [Channel.Control]: 'y-kafka-collabation-control',
         },
       },
-      database: dataSource,
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      },
+      database: dataSource as any,
       socketIO: {
         path: '/socket.io',
         cors: {
