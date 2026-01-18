@@ -26,6 +26,7 @@
     "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/provider": "workspace:*",
+    "@y-kafka-collabation-server/runtime": "workspace:*",
     "@y-kafka-collabation-server/transport": "workspace:*",
     "kafkajs": "^2.2.4",
     "mysql2": "^3.16.0",
