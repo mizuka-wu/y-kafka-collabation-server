@@ -134,6 +134,15 @@ export interface CreateSocketHandlersDeps {
   kafkaProducer: KafkaProducer;
   /** Topic 解析器 */
   topicResolver: TopicResolver;
+  /**
+   * 自定义 Awareness 消息处理逻辑。
+   * 如果提供，Awareness 消息将调用此函数而不是发送到 Kafka。
+   */
+  onAwarenessUpdate?: (
+    socket: Socket,
+    metadata: ProtocolMessageMetadata,
+    message: Uint8Array,
+  ) => Promise<void>;
 }
 
 /**
@@ -150,4 +159,9 @@ export interface StartKafkaConsumerDeps {
   kafkaConsumer: KafkaConsumer;
   roomRegistry: RoomRegistry;
   topicResolver: TopicResolver;
+  /**
+   * If true, the consumer will not subscribe to awareness topics.
+   * Useful when using Redis for awareness.
+   */
+  disableAwarenessConsumer?: boolean;
 }

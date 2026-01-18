@@ -9,11 +9,15 @@ import type {
   TopicResolver,
 } from './types';
 
-function getTopicsFromRoomId(roomId: string, topicResolver: TopicResolver) {
-  const topics = [
-    topicResolver.resolveSyncTopic(roomId),
-    topicResolver.resolveAwarenessTopic(roomId),
-  ];
+function getTopicsFromRoomId(
+  roomId: string,
+  topicResolver: TopicResolver,
+  includeAwareness: boolean = true,
+) {
+  const topics = [topicResolver.resolveSyncTopic(roomId)];
+  if (includeAwareness) {
+    topics.push(topicResolver.resolveAwarenessTopic(roomId));
+  }
   if (topicResolver.resolveControlTopic) {
     topics.push(topicResolver.resolveControlTopic(roomId));
   }
@@ -25,7 +29,12 @@ function getTopicsFromRoomId(roomId: string, topicResolver: TopicResolver) {
  * @param {StartKafkaConsumerDeps}
  */
 export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
-  const { kafkaConsumer, roomRegistry, topicResolver } = deps;
+  const {
+    kafkaConsumer,
+    roomRegistry,
+    topicResolver,
+    disableAwarenessConsumer,
+  } = deps;
 
   /**
    * 初始化的
@@ -34,7 +43,9 @@ export const startKafkaConsumer = async (deps: StartKafkaConsumerDeps) => {
     new Set(
       roomRegistry
         .getRooms()
-        .flatMap((roomId) => getTopicsFromRoomId(roomId, topicResolver)),
+        .flatMap((roomId) =>
+          getTopicsFromRoomId(roomId, topicResolver, !disableAwarenessConsumer),
+        ),
     ),
   );
   for (const topic of initialTopics) {

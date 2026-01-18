@@ -48,6 +48,13 @@ export const createSocketMessageTransportHandlers = (
     async handleClientMessage(socket, channel, message) {
       try {
         const metadata = decodeMetadataFromEnvelope(message);
+
+        // Special handling for Awareness if a custom handler is provided (e.g. Redis broadcast)
+        if (channel === Channel.Awareness && deps.onAwarenessUpdate) {
+          await deps.onAwarenessUpdate(socket, metadata, message);
+          return;
+        }
+
         // 通过 channel 转换为 topic 让 kafka 进行消费
         const topic = resolveTopic(channel, metadata, topicResolver);
         if (topic) {
