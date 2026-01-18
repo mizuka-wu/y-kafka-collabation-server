@@ -9,7 +9,7 @@ import { ProtocolProcessing } from './processing';
 import { DocState, ProtocolProviderOptions, ProviderStatus } from './types';
 import { ProtocolMessageType } from '@y-kafka-collabation-server/protocol';
 import { Channel } from '@y-kafka-collabation-server/transport';
-import { SyncStep1, SyncUpdate } from './constants';
+import { messageYjsSyncStep1, messageYjsUpdate } from '@y/protocols/sync';
 
 export class ProtocolManager extends ProtocolProcessing {
   // To look up state by docId (for incoming network messages)
@@ -30,7 +30,7 @@ export class ProtocolManager extends ProtocolProcessing {
             // Re-trigger sync step 1
             const encoder = encoding.createEncoder();
             encoding.writeVarUint(encoder, ProtocolMessageType.Sync);
-            encoding.writeVarUint(encoder, SyncStep1);
+            encoding.writeVarUint(encoder, messageYjsSyncStep1);
             encoding.writeVarUint8Array(encoder, encodeStateVector(state.doc));
             this.send(
               Channel.Sync,
@@ -38,6 +38,7 @@ export class ProtocolManager extends ProtocolProcessing {
               encoding.toUint8Array(encoder),
               state.docId,
               state.parentId,
+              state.offset,
             );
           }
         }
@@ -95,7 +96,7 @@ export class ProtocolManager extends ProtocolProcessing {
         if (state) {
           const encoder = encoding.createEncoder();
           encoding.writeVarUint(encoder, ProtocolMessageType.Sync);
-          encoding.writeVarUint(encoder, SyncUpdate);
+          encoding.writeVarUint(encoder, messageYjsUpdate);
           encoding.writeVarUint8Array(encoder, update);
           this.send(
             Channel.Sync,
@@ -103,6 +104,7 @@ export class ProtocolManager extends ProtocolProcessing {
             encoding.toUint8Array(encoder),
             state.docId,
             state.parentId,
+            state.offset,
           );
         }
       }
@@ -188,7 +190,7 @@ export class ProtocolManager extends ProtocolProcessing {
     // Send SyncStep1
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, ProtocolMessageType.Sync);
-    encoding.writeVarUint(encoder, SyncStep1);
+    encoding.writeVarUint(encoder, messageYjsSyncStep1);
     encoding.writeVarUint8Array(encoder, encodeStateVector(state.doc));
     this.send(
       Channel.Sync,
@@ -196,6 +198,7 @@ export class ProtocolManager extends ProtocolProcessing {
       encoding.toUint8Array(encoder),
       state.docId,
       state.parentId,
+      state.offset,
     );
 
     // Send Awareness

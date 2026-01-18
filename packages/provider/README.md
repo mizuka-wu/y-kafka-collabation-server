@@ -1,81 +1,81 @@
 # @y-kafka-collabation-server/provider
 
-A high-performance Yjs provider client for `y-kafka-collabation-server`. It implements a layered architecture to handle connection, protocol processing, and document state management with support for **Multiplexing** and **Kafka Offsets**.
+用于 `y-kafka-collabation-server` 的高性能 Yjs provider 客户端。它采用了分层架构来处理连接、协议处理和文档状态管理，并支持 **多路复用 (Multiplexing)** 和 **Kafka Offsets**。
 
-Powered by `ywasm` for near-native performance.
+由 `ywasm` 提供接近原生的性能支持。
 
-## Features
+## 特性
 
-- **Multiplexing**: Manage multiple `YDoc` instances over a single Socket.IO connection.
-- **Kafka Offsets**: Tracks Kafka offsets for every message to ensure strict ordering and consistency.
-- **High Performance**: Uses `ywasm` (WASM implementation of Yjs) for critical operations (Sync, Awareness).
-- **Layered Architecture**: Separation of concerns between Transport, Protocol, and State management.
-- **Type-Safe**: Full TypeScript support with typed events.
+- **多路复用 (Multiplexing)**：通过单个 Socket.IO 连接管理多个 `YDoc` 实例。
+- **Kafka Offsets**：跟踪每条消息的 Kafka offset，以确保严格的顺序和一致性。
+- **高性能**：使用 `ywasm` (Yjs 的 WASM 实现) 进行关键操作 (Sync, Awareness)。
+- **分层架构**：传输层、协议层和状态管理层关注点分离。
+- **类型安全**：完整的 TypeScript 支持和类型化事件。
 
-## Architecture
+## 架构
 
-The provider is built with a 3-layer architecture:
+Provider 采用三层架构构建：
 
-1. **Connection Layer (`ProtocolConnection`)**
-    - Manages the `Socket.IO` client connection.
-    - Handles raw message envelopes (Metadata + Payload).
-    - Extracts `offset` (Kafka offset) from incoming messages.
-    - Emits typed events (`message-sync`, `message-awareness`, etc.).
+1. **连接层 (`ProtocolConnection`)**
+    - 管理 `Socket.IO` 客户端连接。
+    - 处理原始消息信封 (Metadata + Payload)。
+    - 从传入消息中提取 `offset` (Kafka offset)。
+    - 发出类型化事件 (`message-sync`, `message-awareness` 等)。
 
-2. **Processing Layer (`ProtocolProcessing`)**
-    - Extends `ProtocolConnection`.
-    - Implements the Yjs protocol logic (Sync, Awareness, Auth, Control).
-    - Uses `ywasm` native functions (`applyUpdate`, `encodeStateAsUpdate`) for zero-overhead processing.
-    - Updates `DocState` with the latest received Kafka offset.
+2. **处理层 (`ProtocolProcessing`)**
+    - 继承自 `ProtocolConnection`。
+    - 实现 Yjs 协议逻辑 (Sync, Awareness, Auth, Control)。
+    - 使用 `ywasm` 原生函数 (`applyUpdate`, `encodeStateAsUpdate`) 进行零开销处理。
+    - 使用最新接收到的 Kafka offset 更新 `DocState`。
 
-3. **Manager Layer (`ProtocolManager`)**
-    - Extends `ProtocolProcessing`.
-    - Manages the lifecycle of multiple `Y.Doc` instances.
-    - Uses a `Map<string, DocState>` to route messages to the correct document.
-    - Uses a `WeakMap<YDoc, DocState>` to track metadata (synced state, offsets) without leaking memory.
+3. **管理层 (`ProtocolManager`)**
+    - 继承自 `ProtocolProcessing`。
+    - 管理多个 `Y.Doc` 实例的生命周期。
+    - 使用 `Map<string, DocState>` 将消息路由到正确的文档。
+    - 使用 `WeakMap<YDoc, DocState>` 跟踪元数据 (同步状态, offsets) 而不会导致内存泄漏。
 
-## Data Flow
+## 数据流
 
-### Inbound (Server -> Client)
+### 入站 (Server -> Client)
 
-1. **Socket.IO** receives a binary message.
-2. **`ProtocolConnection`** decodes the envelope, extracting:
-    - `messageType` (Sync, Awareness, etc.)
-    - `docId` (Target document)
+1. **Socket.IO** 收到二进制消息。
+2. **`ProtocolConnection`** 解码信封，提取：
+    - `messageType` (Sync, Awareness 等)
+    - `docId` (目标文档)
     - `offset` (Kafka offset)
-3. **`ProtocolProcessing`** handles the specific protocol message:
-    - **Sync**: Applies updates to the `YDoc` using `ywasm`.
-    - **Awareness**: Updates awareness states.
-4. **`ProtocolManager`** ensures the update is applied to the correct `YDoc` instance found via `docId`.
+3. **`ProtocolProcessing`** 处理特定的协议消息：
+    - **Sync**：使用 `ywasm` 将更新应用到 `YDoc`。
+    - **Awareness**：更新 awareness 状态。
+4. **`ProtocolManager`** 确保更新应用到通过 `docId` 找到的正确 `YDoc` 实例。
 
-### Outbound (Client -> Server)
+### 出站 (Client -> Server)
 
-1. **`YDoc`** triggers an `update` event on local changes.
-2. **`ProtocolManager`** (via `updateHandler`) captures the update.
-3. **`ProtocolConnection`** wraps the update in a protocol envelope.
-4. **Socket.IO** emits the binary message to the server.
+1. **`YDoc`** 在本地更改时触发 `update` 事件。
+2. **`ProtocolManager`** (通过 `updateHandler`) 捕获更新。
+3. **`ProtocolConnection`** 将更新封装在协议信封中。
+4. **Socket.IO** 将二进制消息发送到服务器。
 
-## Usage
+## 使用方法
 
 ```typescript
 import { ProtocolManager } from '@y-kafka-collabation-server/provider';
 import { YDoc } from 'ywasm';
 
-// 1. Initialize the manager
+// 1. 初始化 manager
 const provider = new ProtocolManager({
   url: 'ws://localhost:3000',
   roomId: 'my-room-id',
   autoConnect: true,
 });
 
-// 2. Create a YDoc (ywasm)
+// 2. 创建 YDoc (ywasm)
 const doc = new YDoc();
 
-// 3. Add the doc to the provider (Multiplexing)
-// The docId is used to route messages.
+// 3. 将 doc 添加到 provider (多路复用)
+// docId 用于路由消息
 provider.addDoc(doc, { docId: 'my-document-guid' });
 
-// 4. Listen to events
+// 4. 监听事件
 provider.on('synced', ({ docId, state }) => {
   console.log(`Document ${docId} synced: ${state}`);
 });
@@ -84,7 +84,7 @@ provider.on('status', ({ status }) => {
   console.log('Connection status:', status);
 });
 
-// 5. Cleanup
+// 5. 清理
 // provider.removeDoc(doc);
 // provider.destroy();
 ```
@@ -93,25 +93,25 @@ provider.on('status', ({ status }) => {
 
 ### `ProtocolManager`
 
-#### Constructor
+#### 构造函数
 
 `new ProtocolManager(options: ProtocolProviderOptions)`
 
-#### Methods
+#### 方法
 
-- `addDoc(doc: YDoc, options?: { docId?: string; parentId?: string })`: Register a doc.
-- `removeDoc(doc: YDoc)`: Unregister a doc.
-- `destroy()`: Close connection and cleanup.
+- `addDoc(doc: YDoc, options?: { docId?: string; parentId?: string })`: 注册 doc。
+- `removeDoc(doc: YDoc)`: 注销 doc。
+- `destroy()`: 关闭连接并清理。
 
-#### Events
+#### 事件
 
-- `status`: Connection status changes.
-- `synced`: Document sync state changes.
-- `permission-denied`: Auth failures.
-- `connection-error`: Socket errors.
+- `status`: 连接状态变更。
+- `synced`: 文档同步状态变更。
+- `permission-denied`: 认证失败。
+- `connection-error`: Socket 错误。
 
-## Dependencies
+## 依赖
 
-- `ywasm`: WASM implementation of CRDT.
-- `socket.io-client`: Transport layer.
-- `@y-kafka-collabation-server/protocol`: Shared protocol definitions.
+- `ywasm`: CRDT 的 WASM 实现。
+- `socket.io-client`: 传输层。
+- `@y-kafka-collabation-server/protocol`: 共享协议定义。

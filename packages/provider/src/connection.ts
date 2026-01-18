@@ -40,8 +40,8 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
     this.socket.on('connect_error', this.onConnectError.bind(this));
 
     // Listen to channel events
-    this.socket.on(getSocketIOEvent(Channel.Sync), (data) =>
-      this.handleIncomingMessage(Channel.Sync, data),
+    this.socket.on(getSocketIOEvent(Channel.Sync), (data, offset) =>
+      this.handleIncomingMessage(Channel.Sync, data, offset),
     );
     this.socket.on(getSocketIOEvent(Channel.Awareness), (data) =>
       this.handleIncomingMessage(Channel.Awareness, data),
@@ -92,6 +92,7 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
     payload: Uint8Array,
     docId: string,
     parentId?: string,
+    offset?: string, // Kafka offset for sync messages
   ) {
     if (!this.socket.connected) return;
 
@@ -109,7 +110,11 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
     };
 
     const envelope = encodeEnvelope(content, metadata);
-    this.socket.emit(getSocketIOEvent(channel), envelope);
+    if (channel === Channel.Sync && offset !== undefined) {
+      this.socket.emit(getSocketIOEvent(channel), envelope, offset);
+    } else {
+      this.socket.emit(getSocketIOEvent(channel), envelope);
+    }
   }
 
   private onConnect() {
@@ -127,9 +132,13 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
     this.emit('connection-error', [error]);
   }
 
-  private handleIncomingMessage(channel: Channel, payload: unknown) {
+  private handleIncomingMessage(
+    channel: Channel,
+    payload: unknown,
+    incomingOffset?: string,
+  ) {
     let buffer: Uint8Array;
-    let offset: string | undefined;
+    let offset: string | undefined = incomingOffset;
 
     // Buffer conversion logic
     if (
@@ -148,7 +157,8 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
           (typeof Buffer !== 'undefined' && Buffer.isBuffer(p.message)))
       ) {
         buffer = new Uint8Array(p.message);
-        if (typeof p.offset === 'string') {
+        // Fallback if offset is inside object
+        if (!offset && typeof p.offset === 'string') {
           offset = p.offset;
         }
       } else {

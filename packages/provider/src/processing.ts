@@ -9,7 +9,11 @@ import {
   ProtocolMessageMetadata,
 } from '@y-kafka-collabation-server/protocol';
 import { Channel } from '@y-kafka-collabation-server/transport';
-import { SyncStep1, SyncStep2, SyncUpdate } from './constants';
+import {
+  messageYjsSyncStep1,
+  messageYjsSyncStep2,
+  messageYjsUpdate,
+} from '@y/protocols/sync';
 
 export abstract class ProtocolProcessing extends ProtocolConnection {
   constructor(options: ProtocolProviderOptions) {
@@ -82,14 +86,14 @@ export abstract class ProtocolProcessing extends ProtocolConnection {
 
       const syncMessageType = decoding.readVarUint(decoder);
       switch (syncMessageType) {
-        case SyncStep1: {
+        case messageYjsSyncStep1: {
           const stateVector = decoding.readVarUint8Array(decoder);
           const update = encodeStateAsUpdate(state.doc, stateVector);
-          encoding.writeVarUint(encoder, SyncStep2);
+          encoding.writeVarUint(encoder, messageYjsSyncStep2);
           encoding.writeVarUint8Array(encoder, update);
           break;
         }
-        case SyncStep2: {
+        case messageYjsSyncStep2: {
           const update = decoding.readVarUint8Array(decoder);
           applyUpdate(state.doc, update, this);
           if (!state.synced) {
@@ -98,7 +102,7 @@ export abstract class ProtocolProcessing extends ProtocolConnection {
           }
           break;
         }
-        case SyncUpdate: {
+        case messageYjsUpdate: {
           const update = decoding.readVarUint8Array(decoder);
           applyUpdate(state.doc, update, this);
           break;
@@ -113,6 +117,7 @@ export abstract class ProtocolProcessing extends ProtocolConnection {
         encoding.toUint8Array(encoder),
         state.docId,
         state.parentId,
+        state.offset,
       );
     }
   }
