@@ -33,7 +33,6 @@
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/transport": "workspace:*",
-    "@y/protocols": "^1.0.6",
     "buffer": "6.0.3",
     "lib0": "^0.2.88",
     "socket.io-client": "4.8.3",
