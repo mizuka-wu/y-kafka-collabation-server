@@ -31,8 +31,11 @@
   "dependencies": {
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/transport": "workspace:*",
+    "@y-kafka-collabation-server/persistence": "workspace:*",
     "kafkajs": "^2.2.4",
     "socket.io": "^4.8.0",
+    "typeorm": "^0.3.28",
+    "reflect-metadata": "^0.1.13",
     "y-protocols": "^1.0.6-3",
     "yjs": "^13.6.28",
     "lib0": "^0.2.115-6"
