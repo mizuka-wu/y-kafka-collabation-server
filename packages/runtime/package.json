@@ -29,9 +29,11 @@
     "vitest": "^1.2.1"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "@y-kafka-collabation-server/persistence": "workspace:*",
     "@y-kafka-collabation-server/protocol": "workspace:*",
     "@y-kafka-collabation-server/transport": "workspace:*",
+    "ioredis": "^5.9.2",
     "kafkajs": "^2.2.4",
     "lib0": "^0.2.115-6",
     "reflect-metadata": "^0.1.13",

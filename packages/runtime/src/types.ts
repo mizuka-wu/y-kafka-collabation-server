@@ -1,4 +1,4 @@
-import type { ServerOptions as SocketIOServerOptions } from 'socket.io';
+import type { ServerOptions } from 'socket.io';
 import type { DataSource } from 'typeorm';
 import type { KafkaConfig, ConsumerConfig, ProducerConfig } from 'kafkajs';
 import type { TopicTemplates } from '@y-kafka-collabation-server/transport';
@@ -18,6 +18,21 @@ export interface YKafkaRuntimeConfig {
   };
 
   /**
+   * Redis Configuration for Socket.IO Adapter & Awareness
+   */
+  redis?: {
+    host?: string;
+    port?: number;
+    url?: string;
+    password?: string;
+    /**
+     * Pub/Sub channel prefix
+     * Default: 'y-kafka-collabation'
+     */
+    keyPrefix?: string;
+  };
+
+  /**
    * Database Configuration (TypeORM)
    * You can pass an initialized DataSource or connection options.
    */
@@ -26,7 +41,7 @@ export interface YKafkaRuntimeConfig {
   /**
    * Socket.IO Options
    */
-  socketIO?: Partial<SocketIOServerOptions>;
+  socketIO?: Partial<ServerOptions>;
 
   /**
    * Runtime Options

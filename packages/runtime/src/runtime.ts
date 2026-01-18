@@ -29,6 +29,8 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { messageYjsSyncStep2 } from 'y-protocols/sync';
 import { mergeUpdatesV1 } from 'ywasm';
+import { Redis } from 'ioredis';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 class KafkaProducerAdapter implements IKafkaProducer {
   constructor(private producer: Producer) {}
@@ -99,7 +101,10 @@ export class YKafkaRuntime {
     this.topicResolver = new DefaultTopicResolver(config.kafka.topicTemplates);
 
     // 3. Initialize Persistence
-    const persistenceAdapter = new TypeOrmPersistenceAdapter(config.database);
+
+    const persistenceAdapter = new TypeOrmPersistenceAdapter(
+      config.database as any,
+    );
     this.persistenceCoordinator = new PersistenceCoordinator(
       persistenceAdapter,
     );
@@ -114,8 +119,28 @@ export class YKafkaRuntime {
       throw new Error('Runtime is already attached to a server.');
     }
 
+    let adapter;
+    if (this.config.redis) {
+      const redisConfig = this.config.redis;
+      let pubClient: Redis;
+      if (redisConfig.url) {
+        pubClient = new Redis(redisConfig.url);
+      } else {
+        pubClient = new Redis({
+          host: redisConfig.host,
+          port: redisConfig.port,
+          password: redisConfig.password,
+        });
+      }
+      const subClient = pubClient.duplicate();
+      adapter = createAdapter(pubClient, subClient, {
+        key: redisConfig.keyPrefix || 'y-kafka-collabation',
+      });
+    }
+
     this.io = new SocketIOServer(server, {
       ...this.config.socketIO,
+      adapter,
       cors: this.config.socketIO?.cors || {
         origin: '*',
         methods: ['GET', 'POST'],
@@ -136,10 +161,12 @@ export class YKafkaRuntime {
 
     // Start Realtime Broadcast Consumer
     if (this.config.options?.enableRealtimeWorker !== false) {
+      const disableAwarenessConsumer = !!this.config.redis;
       await startKafkaConsumer({
         kafkaConsumer: new KafkaConsumerAdapter(this.kafkaConsumer),
         roomRegistry: this.roomRegistry,
         topicResolver: this.topicResolver,
+        disableAwarenessConsumer,
       });
     }
 
@@ -169,6 +196,13 @@ export class YKafkaRuntime {
       kafkaProducer: new KafkaProducerAdapter(this.kafkaProducer),
       roomRegistry: this.roomRegistry,
       topicResolver: this.topicResolver,
+      onAwarenessUpdate: this.config.redis
+        ? async (socket, metadata, message) => {
+            const event = getSocketIOEvent(Channel.Awareness);
+            // Broadcast to all clients in the room except the sender
+            socket.to(metadata.roomId).emit(event, message);
+          }
+        : undefined,
     });
 
     this.io.on('connection', async (socket: Socket) => {

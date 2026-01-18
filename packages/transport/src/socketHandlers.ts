@@ -43,6 +43,7 @@ export const createSocketMessageTransportHandlers = (
     handleConnection(socket, assignment) {
       roomRegistry.add(socket, assignment);
       socket.data.roomAssignment = assignment;
+      socket.join(assignment.roomId);
     },
 
     async handleClientMessage(socket, channel, message) {
