@@ -1,5 +1,6 @@
 import type { Socket, ManagerOptions, SocketOptions } from 'socket.io-client';
-import * as Y from 'ywasm';
+import { YDoc, Awareness } from 'ywasm';
+import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
 export interface ProtocolProviderOptions {
   /**
@@ -34,15 +35,36 @@ export type ProviderEvents = {
   control: (type: number, content: Uint8Array) => void;
   'permission-denied': (reason: string) => void;
   'doc-loaded': (docId: string) => void;
+  // Internal message events
+  'message-sync': (
+    payload: Uint8Array,
+    metadata: ProtocolMessageMetadata,
+    offset?: string,
+  ) => void;
+  'message-awareness': (
+    payload: Uint8Array,
+    metadata: ProtocolMessageMetadata,
+    offset?: string,
+  ) => void;
+  'message-control': (
+    payload: Uint8Array,
+    metadata: ProtocolMessageMetadata,
+    offset?: string,
+  ) => void;
+  'message-auth': (
+    payload: Uint8Array,
+    metadata: ProtocolMessageMetadata,
+    offset?: string,
+  ) => void;
 };
 
 export interface DocState {
-  doc: Y.YDoc;
+  doc: YDoc;
   docId: string;
   parentId?: string;
   synced: boolean;
   offset?: string; // Kafka offset
-  awareness: Y.Awareness;
+  awareness: Awareness;
   // Handlers to be cleaned up
   updateHandler: (update: Uint8Array, origin: unknown) => void;
   awarenessUpdateHandler: (
