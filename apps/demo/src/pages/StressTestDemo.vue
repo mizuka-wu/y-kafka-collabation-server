@@ -18,6 +18,14 @@
     </section>
 
     <section class="card">
+      <h3>压测控制 (Active Clients: {{ clients.length }})</h3>
+      <div class="controls">
+        <button @click="addClient">Add Client</button>
+        <button @click="clearClients">Clear Clients</button>
+      </div>
+    </section>
+
+    <section class="card">
       <h3>网关待实现能力</h3>
       <ol>
         <li>模拟多租户、多 room 的连接矩阵。</li>
@@ -29,10 +37,54 @@
 </template>
 
 <script setup lang="ts">
-// 无事件逻辑，仅保留静态描述。
+import { ref, onUnmounted } from 'vue';
+import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
+import { YDoc } from 'ywasm';
+
+const clients = ref<any[]>([]);
+
+const addClient = () => {
+  const doc = new YDoc({});
+  const clientId = clients.value.length + 1;
+  const provider = new YKafkaCollabationProvider(
+    'http://localhost:3000',
+    `stress-test-room/doc-${clientId}`,
+    doc,
+    {
+      connect: true,
+      params: { type: 'stress-test' },
+    }
+  );
+
+  clients.value.push({ doc, provider, id: clientId });
+  console.log(`[StressTest] Client ${clientId} added`);
+};
+
+const clearClients = () => {
+  clients.value.forEach(c => {
+    c.provider.destroy();
+    c.doc.free();
+  });
+  clients.value = [];
+};
+
+onUnmounted(() => {
+  clearClients();
+});
 </script>
 
 <style scoped>
+.controls {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
 .card {
   padding: 1.5rem;
   background: var(--bg-card);

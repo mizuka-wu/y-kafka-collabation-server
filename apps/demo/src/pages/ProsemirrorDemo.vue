@@ -9,6 +9,7 @@
     </header>
 
     <section class="card">
+      <h3>连接状态: {{ status }}</h3>
       <h3>ProtocolMessage 元数据字段</h3>
       <table class="metadata-table">
         <thead>
@@ -38,6 +39,42 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
+import { YDoc } from 'ywasm';
+
+const status = ref('disconnected');
+
+onMounted(() => {
+  const doc = new YDoc({});
+  // 使用 http 协议，provider 内部会处理 socket.io 连接
+  const provider = new YKafkaCollabationProvider(
+    'http://localhost:3000',
+    'prosemirror-demo/doc-1',
+    doc,
+    {
+      connect: true,
+      params: {
+        userId: 'demo-user-' + Math.floor(Math.random() * 1000),
+      },
+    }
+  );
+
+  provider.on('status', (event: { status: string }) => {
+    status.value = event.status;
+    console.log('[ProsemirrorDemo] Status:', event.status);
+  });
+
+  provider.on('synced', (event: { docId: string; state: boolean }) => {
+    console.log('[ProsemirrorDemo] Synced:', event);
+  });
+
+  onUnmounted(() => {
+    provider.destroy();
+    doc.free();
+  });
+});
+
 const metadataFields = [
   { key: 'roomId', description: '逻辑文档集合，用于 Topic 路由。' },
   { key: 'docId', description: '具体 Y.Doc 标识。' },
