@@ -3,6 +3,7 @@ import { YDoc, Awareness } from 'ywasm';
 
 export interface YKafkaCollabationProviderOptions {
   connect?: boolean;
+  docId?: string;
   awareness?: Awareness;
   params?: { [key: string]: string };
   protocols?: string[];
@@ -31,6 +32,7 @@ export class YKafkaCollabationProvider extends ProtocolManager {
     doc: YDoc,
     {
       connect = true,
+      docId: optionDocId,
       awareness = new Awareness(doc),
       params = {},
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -45,11 +47,25 @@ export class YKafkaCollabationProvider extends ProtocolManager {
   ) {
     let roomId = roomname;
     let docId = roomname;
+    let explicitDocId = false;
 
     if (roomname.includes('/')) {
       const parts = roomname.split('/');
       roomId = parts[0] as string;
-      docId = parts[1] as string;
+      docId = parts[parts.length - 1] as string;
+      explicitDocId = true;
+    }
+
+    if (!explicitDocId) {
+      if (optionDocId) {
+        docId = optionDocId;
+      } else if (params) {
+        const paramDocId =
+          params.docId || params.docid || params['doc-id'] || params.id;
+        if (paramDocId) {
+          docId = paramDocId;
+        }
+      }
     }
 
     super({

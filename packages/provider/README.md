@@ -95,10 +95,14 @@ provider.on('status', ({ status }) => {
 `new YKafkaCollabationProvider(serverUrl: string, roomname: string, doc: YDoc, options?: YKafkaCollabationProviderOptions)`
 
 - `serverUrl`: Socket.IO 服务器地址。
-- `roomname`: 房间名，格式为 `room-id` 或 `room-id/doc-id`。如果未指定 `doc-id`，则默认使用 `room-id`。
+- `roomname`: 房间名，格式为 `room-id` 或 `room-id/doc-id`。
+  - 如果包含 `/`，则分割，`room-id` 取第一部分，`doc-id` 取最后一部分。
+  - 如果不包含 `/`，则尝试从 `options.docId` 或 `params` (keys: `docId`, `docid`, `doc-id`, `id`) 中获取 `doc-id`。
+  - 如果都未找到，则 `doc-id` 默认为 `room-id`。
 - `doc`: 主 `YDoc` 实例。
 - `options`: 配置项。
   - `connect`: 是否自动连接 (默认 `true`)。
+  - `docId`: 显式指定文档 ID (当 roomname 中未包含时)。
   - `awareness`: 自定义 Awareness 实例 (默认 `new Awareness(doc)`)。
   - `params`: URL 参数。
   - `resyncInterval`: 重同步间隔 (毫秒)。
