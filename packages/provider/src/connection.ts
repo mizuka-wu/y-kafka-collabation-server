@@ -29,7 +29,6 @@ export class ProtocolConnection extends ObservableV2<ProviderEvents> {
     this.roomId = options.roomId;
 
     this.socket = io(this.url, {
-      transports: ['websocket'],
       autoConnect: false,
       ...options.socketOptions,
       query: options.params,

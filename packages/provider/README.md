@@ -58,24 +58,22 @@ Provider 采用三层架构构建：
 ## 使用方法
 
 ```typescript
-import { ProtocolManager } from '@y-kafka-collabation-server/provider';
+import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
 import { YDoc } from 'ywasm';
 
-// 1. 初始化 manager
-const provider = new ProtocolManager({
-  url: 'ws://localhost:3000',
-  roomId: 'my-room-id',
-  autoConnect: true,
-});
-
-// 2. 创建 YDoc (ywasm)
+// 1. 创建 YDoc (ywasm)
 const doc = new YDoc();
 
-// 3. 将 doc 添加到 provider (多路复用)
-// docId 用于路由消息
-provider.addDoc(doc, { docId: 'my-document-guid' });
+// 2. 初始化 provider
+// 自动连接并注册 doc
+// roomname 可以是 'room-id' 或 'room-id/doc-id'
+const provider = new YKafkaCollabationProvider(
+  'http://localhost:3000',
+  'my-room-id/my-doc-guid',
+  doc
+);
 
-// 4. 监听事件
+// 3. 监听事件
 provider.on('synced', ({ docId, state }) => {
   console.log(`Document ${docId} synced: ${state}`);
 });
@@ -84,22 +82,33 @@ provider.on('status', ({ status }) => {
   console.log('Connection status:', status);
 });
 
-// 5. 清理
-// provider.removeDoc(doc);
+// 4. 清理
 // provider.destroy();
 ```
 
 ## API
 
-### `ProtocolManager`
+### `YKafkaCollabationProvider`
 
 #### 构造函数
 
-`new ProtocolManager(options: ProtocolProviderOptions)`
+`new YKafkaCollabationProvider(serverUrl: string, roomname: string, doc: YDoc, options?: YKafkaCollabationProviderOptions)`
+
+- `serverUrl`: Socket.IO 服务器地址。
+- `roomname`: 房间名，格式为 `room-id` 或 `room-id/doc-id`。如果未指定 `doc-id`，则默认使用 `room-id`。
+- `doc`: 主 `YDoc` 实例。
+- `options`: 配置项。
+  - `connect`: 是否自动连接 (默认 `true`)。
+  - `awareness`: 自定义 Awareness 实例 (默认 `new Awareness(doc)`)。
+  - `params`: URL 参数。
+  - `resyncInterval`: 重同步间隔 (毫秒)。
+  - `maxBackoffTime`: 最大重连退避时间。
 
 #### 方法
 
-- `addDoc(doc: YDoc, options?: { docId?: string; parentId?: string })`: 注册 doc。
+继承自 `ProtocolManager`:
+
+- `addDoc(doc: YDoc, options?: { docId?: string; parentId?: string; awareness?: Awareness })`: 注册额外的 doc (多路复用)。
 - `removeDoc(doc: YDoc)`: 注销 doc。
 - `destroy()`: 关闭连接并清理。
 

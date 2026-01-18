@@ -79,7 +79,10 @@ export class ProtocolManager extends ProtocolProcessing {
   /**
    * Registers a Y.Doc to be managed by this provider.
    */
-  addDoc(doc: YDoc, options: { docId?: string; parentId?: string } = {}) {
+  addDoc(
+    doc: YDoc,
+    options: { docId?: string; parentId?: string; awareness?: Awareness } = {},
+  ) {
     if (this.docStates.has(doc)) {
       return; // Already registered
     }
@@ -88,7 +91,7 @@ export class ProtocolManager extends ProtocolProcessing {
     const docId = options.docId || (doc as any).guid || String(doc.id);
     const parentId = options.parentId;
 
-    const awareness = new Awareness(doc);
+    const awareness = options.awareness || new Awareness(doc);
 
     const updateHandler = (update: Uint8Array, origin: unknown) => {
       if (origin !== this) {

@@ -23,6 +23,11 @@ export interface ProtocolProviderOptions {
    * Socket options
    */
   socketOptions?: Partial<ManagerOptions & SocketOptions>;
+  /**
+   * Request server state every `resyncInterval` milliseconds
+   * Default: 30000
+   */
+  resyncInterval?: number;
 }
 
 export type ProviderStatus = 'disconnected' | 'connecting' | 'connected';

@@ -1,10 +1,68 @@
 import { ProtocolManager } from './manager';
+import { YDoc, Awareness } from 'ywasm';
+
+export interface YKafkaCollabationProviderOptions {
+  connect?: boolean;
+  awareness?: Awareness;
+  params?: { [key: string]: string };
+  protocols?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  WebSocketPolyfill?: any;
+  resyncInterval?: number;
+  maxBackoffTime?: number;
+  disableBc?: boolean;
+}
 
 /**
- * ProtocolProvider is the main entry point for the Yjs provider.
+ * YKafkaCollabationProvider is the main entry point for the Yjs provider.
  * It extends ProtocolManager which handles the core logic.
+ * The constructor signature is aligned with y-websocket.
  */
-export class ProtocolProvider extends ProtocolManager {
-  // This class can be extended with provider-specific logic if needed in the future.
-  // Currently, all functionality resides in ProtocolManager and its base classes.
+export class YKafkaCollabationProvider extends ProtocolManager {
+  /**
+   * @param {string} serverUrl
+   * @param {string} roomname
+   * @param {YDoc} doc
+   * @param {YKafkaCollabationProviderOptions} [options]
+   */
+  constructor(
+    serverUrl: string,
+    roomname: string,
+    doc: YDoc,
+    {
+      connect = true,
+      awareness = new Awareness(doc),
+      params = {},
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      protocols = [],
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      WebSocketPolyfill = null,
+      resyncInterval = -1,
+      maxBackoffTime = 2500,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      disableBc = false,
+    }: YKafkaCollabationProviderOptions = {},
+  ) {
+    let roomId = roomname;
+    let docId = roomname;
+
+    if (roomname.includes('/')) {
+      const parts = roomname.split('/');
+      roomId = parts[0] as string;
+      docId = parts[1] as string;
+    }
+
+    super({
+      url: serverUrl,
+      roomId,
+      params,
+      autoConnect: connect,
+      resyncInterval: resyncInterval > 0 ? resyncInterval : undefined,
+      socketOptions: {
+        reconnectionDelayMax: maxBackoffTime,
+      },
+    });
+
+    this.addDoc(doc, { docId, awareness });
+  }
 }
