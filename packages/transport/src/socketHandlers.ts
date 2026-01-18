@@ -53,7 +53,13 @@ export const createSocketMessageTransportHandlers = (
         if (topic) {
           await kafkaProducer.produce({
             topic,
-            messages: [{ value: message }],
+            messages: [
+              {
+                value: message,
+                // Use docId (or roomId) as partition key to ensure ordering
+                key: metadata.docId || metadata.roomId,
+              },
+            ],
           });
         }
       } catch (e) {

@@ -1,7 +1,12 @@
 {
   "extends": "@y-kafka-collabation-server/typescript-config/base.json",
   "compilerOptions": {
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@y-kafka-collabation-server/persistence": ["../persistence/src/index.ts"],
+      "@y-kafka-collabation-server/transport": ["../transport/src/index.ts"],
+      "@y-kafka-collabation-server/protocol": ["../protocol/src/index.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

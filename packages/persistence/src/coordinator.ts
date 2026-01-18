@@ -2,8 +2,9 @@ import { PersistenceAdapter, PersistenceMetadata } from './types';
 
 export interface SnapshotRecovery {
   docId: string;
-  subdocId?: string;
+  parentId?: string;
   version: string;
+  timestamp: number;
   data: Buffer;
   storageLocation?: string;
 }
@@ -13,9 +14,14 @@ export class PersistenceCoordinator {
 
   async recoverSnapshot(
     docId: string,
-    subdocId?: string,
+    roomId: string,
+    parentId?: string,
   ): Promise<SnapshotRecovery | null> {
-    const snapshot = await this.adapter.loadLatestSnapshot(docId, subdocId);
+    const snapshot = await this.adapter.loadLatestSnapshot(
+      docId,
+      roomId,
+      parentId,
+    );
     if (!snapshot) {
       return null;
     }
@@ -25,11 +31,21 @@ export class PersistenceCoordinator {
       : Buffer.from(rawData, 'base64');
     return {
       docId: snapshot.docId,
-      subdocId: snapshot.subdocId,
+      parentId: snapshot.parentId,
       version: snapshot.version,
+      timestamp: Number(snapshot.timestamp),
       data: bufferData,
       storageLocation: snapshot.storageLocation,
     };
+  }
+
+  async getUpdatesSince(
+    docId: string,
+    roomId: string,
+    parentId?: string,
+    sinceVersion?: string,
+  ) {
+    return this.adapter.exportHistory(docId, roomId, parentId, sinceVersion);
   }
 
   async persistUpdate(
@@ -44,7 +60,12 @@ export class PersistenceCoordinator {
     await this.adapter.persistSnapshot(metadata, binary);
   }
 
-  async exportHistory(docId: string, subdocId?: string, sinceVersion?: string) {
-    return this.adapter.exportHistory(docId, subdocId, sinceVersion);
+  async exportHistory(
+    docId: string,
+    roomId: string,
+    parentId?: string,
+    sinceVersion?: string,
+  ) {
+    return this.adapter.exportHistory(docId, roomId, parentId, sinceVersion);
   }
 }

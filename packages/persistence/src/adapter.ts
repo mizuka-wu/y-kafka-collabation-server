@@ -1,4 +1,4 @@
-import { DataSource, FindOptionsWhere, MoreThan } from 'typeorm';
+import { DataSource, FindOptionsWhere, MoreThan, IsNull } from 'typeorm';
 import {
   DocumentSnapshot,
   PersistenceAdapter,
@@ -24,24 +24,27 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
     return this.snowflake.nextId();
   }
 
-  async loadLatestSnapshot(docId: string, subdocId?: string) {
+  async loadLatestSnapshot(docId: string, roomId: string, parentId?: string) {
     return this.snapshotRepo.findOne({
       where: {
+        roomId,
         docId,
-        subdocId,
+        parentId: parentId ?? IsNull(),
       },
       order: {
-        createdAt: 'DESC',
+        version: 'DESC', // Use Offset-based versioning for strict ordering
       },
     });
   }
 
   async persistSnapshot(metadata: PersistenceMetadata, binary: Buffer) {
-    const version = this.generateVersion();
+    // Prefer provided version (Kafka offset), fallback to snowflake
+    const version = metadata.version ?? this.generateVersion();
     const snapshot = this.snapshotRepo.create({
+      roomId: metadata.roomId!, // Ensure roomId is present
       docId: metadata.docId,
-      subdocId: metadata.subdocId,
-      version: version, // Use snowflake
+      parentId: metadata.parentId,
+      version: version,
       timestamp: metadata.timestamp ?? Date.now(),
       data: toBuffer(binary),
       storageLocation: metadata.storageLocation,
@@ -52,23 +55,28 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
   async persistUpdate(
     metadata: PersistenceMetadata,
     binary: Buffer,
-    historyOnly?: boolean,
+    historyOnly: boolean = true, // Default to true: Updates are deltas, not full snapshots
   ) {
-    const version = this.generateVersion();
+    // Prefer provided version (Kafka offset), fallback to snowflake
+    const version = metadata.version ?? this.generateVersion();
     const payload: Partial<UpdateHistory> = {
+      roomId: metadata.roomId!,
       docId: metadata.docId,
-      subdocId: metadata.subdocId,
-      version: version, // Use snowflake
+      parentId: metadata.parentId,
+      version: version,
       timestamp: metadata.timestamp ?? Date.now(),
       metadata: JSON.stringify({ roomId: metadata.roomId }),
       payload: toBuffer(binary),
     };
 
     await this.dataSource.transaction(async (manager) => {
+      // Only save snapshot if explicitly requested (and binary is a full snapshot)
+      // For standard updates, we should ONLY append to history.
       if (!historyOnly) {
         const snapshot = manager.create(DocumentSnapshot, {
+          roomId: metadata.roomId!,
           docId: metadata.docId,
-          subdocId: metadata.subdocId,
+          parentId: metadata.parentId,
           version: version,
           timestamp: metadata.timestamp ?? Date.now(),
           data: toBuffer(binary),
@@ -79,16 +87,22 @@ export class TypeOrmPersistenceAdapter implements PersistenceAdapter {
     });
   }
 
-  async exportHistory(docId: string, subdocId?: string, sinceVersion?: string) {
+  async exportHistory(
+    docId: string,
+    roomId: string,
+    parentId?: string,
+    sinceVersion?: string,
+  ) {
     const where: FindOptionsWhere<UpdateHistory> = {
+      roomId,
       docId,
-      subdocId,
+      parentId: parentId ?? IsNull(),
       ...(sinceVersion ? { version: MoreThan(sinceVersion) } : {}),
     };
     return this.historyRepo.find({
       where,
       order: {
-        createdAt: 'ASC',
+        version: 'ASC', // Order by version (offset) to replay correctly
       },
     });
   }

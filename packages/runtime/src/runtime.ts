@@ -28,16 +28,20 @@ import { YKafkaRuntimeConfig } from './types';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { messageYjsSyncStep2 } from 'y-protocols/sync';
+import { mergeUpdatesV1 } from 'ywasm';
 
 class KafkaProducerAdapter implements IKafkaProducer {
   constructor(private producer: Producer) {}
   async produce(params: {
     topic: string;
-    messages: { value: Uint8Array | Buffer }[];
+    messages: { value: Uint8Array | Buffer; key?: string | Buffer | null }[];
   }): Promise<void> {
     await this.producer.send({
       topic: params.topic,
-      messages: params.messages.map((m) => ({ value: Buffer.from(m.value) })),
+      messages: params.messages.map((m) => ({
+        value: Buffer.from(m.value),
+        key: m.key ? Buffer.from(m.key) : undefined,
+      })),
     });
   }
 }
@@ -212,52 +216,64 @@ export class YKafkaRuntime {
 
   private async hydrateClient(socket: Socket, assignment: RoomAssignment) {
     try {
-      const { docId, parentId } = assignment;
+      const { docId, parentId, roomId } = assignment;
 
-      // Load latest snapshot from persistence
+      // 1. Recover Snapshot
       const snapshot = await this.persistenceCoordinator.recoverSnapshot(
         docId,
+        roomId,
         parentId,
       );
 
+      // 2. Recover subsequent updates (diffs)
+      const sinceVersion = snapshot?.version;
+      const updates = await this.persistenceCoordinator.getUpdatesSince(
+        docId,
+        roomId,
+        parentId,
+        sinceVersion,
+      );
+
+      const updatesToMerge: Uint8Array[] = [];
+      let lastVersion = sinceVersion || '0';
+      let lastTimestamp = snapshot?.timestamp || Date.now();
+
       if (snapshot) {
-        // Construct a SyncStep1 or Update message to send to client
-        // Actually, typically we send the document state vector or just the full state as update
-        // If we have the full binary state (Y.Doc encoded), we can wrap it in a Sync Step 2 (Update) message?
-        // Or simpler: The protocol expects standard Yjs sync protocol.
+        updatesToMerge.push(snapshot.data);
+      }
 
-        // However, Yjs Sync Protocol starts with Step 1 (Client sends SV).
-        // Server should respond with Step 2.
-        // But here we are "pushing" the initial state.
+      if (updates && updates.length > 0) {
+        updates.forEach((u) => {
+          updatesToMerge.push(u.payload);
+        });
+        const lastUpdate = updates[updates.length - 1];
+        if (lastUpdate) {
+          lastVersion = lastUpdate.version;
+          lastTimestamp = lastUpdate.timestamp;
+        }
+      }
 
-        // If the client follows Yjs Websocket provider logic, it will send Sync Step 1 immediately upon connection.
-        // Our 'handleClientMessage' will forward that Step 1 to Kafka.
-        // But we want to reply *directly* from DB if possible, OR let the Kafka consumer loop handle it?
+      // 3. Merge and Send
+      if (updatesToMerge.length > 0) {
+        // Merge all updates into a single update using Ywasm (Rust-based)
+        // This is significantly faster than JS implementation for large updates
+        const mergedUpdate = mergeUpdatesV1(updatesToMerge);
 
-        // Optimized approach:
-        // Client connects -> Client sends Sync Step 1.
-        // Server intercepts Sync Step 1?
-        // OR Server just pushes a Sync Step 2 (Update) immediately after connection?
-        // Yjs is robust, it can handle receiving updates.
-
-        // Let's send the snapshot as a Yjs Update.
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, ProtocolMessageType.Sync);
-        encoding.writeVarUint(encoder, messageYjsSyncStep2); // Sync Step 2 is effectively an Update
-        encoding.writeVarUint8Array(encoder, snapshot.data); // data is Uint8Array/Buffer
-
+        encoding.writeVarUint(encoder, messageYjsSyncStep2);
+        encoding.writeVarUint8Array(encoder, mergedUpdate);
         const payload = encoding.toUint8Array(encoder);
 
-        // Wrap in Envelope
         const metadata = {
           roomId: assignment.roomId,
           docId: assignment.docId,
           parentId: assignment.parentId,
-          timestamp: Date.now(),
-          senderId: 'server-hydration',
+          timestamp: Number(lastTimestamp),
+          senderId: 'server-hydration-merged',
+          version: lastVersion,
         };
         const envelope = encodeEnvelope(payload, metadata);
-
         socket.emit(getSocketIOEvent(Channel.Sync), envelope);
       }
     } catch (err) {

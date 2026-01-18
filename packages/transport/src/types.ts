@@ -55,7 +55,10 @@ export interface KafkaProducer {
   /** 发送消息 */
   produce(params: {
     topic: string;
-    messages: { value: Uint8Array | Buffer }[];
+    messages: {
+      value: Uint8Array | Buffer;
+      key?: string | Buffer | null;
+    }[];
   }): Promise<void>;
 }
 
