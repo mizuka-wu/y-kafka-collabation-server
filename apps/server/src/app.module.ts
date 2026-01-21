@@ -29,7 +29,7 @@ import {
     }),
     LoggerModule.forRoot({
       pinoHttp: {
-        level: 'warn',
+        level: 'info',
         transport:
           process.env.NODE_ENV !== 'production'
             ? {
