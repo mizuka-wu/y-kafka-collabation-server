@@ -28,7 +28,7 @@ import { YKafkaRuntimeConfig } from './types';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { messageYjsSyncStep2 } from 'y-protocols/sync';
-import { mergeUpdatesV1 } from 'ywasm';
+import { mergeUpdatesV2 } from '@y/y';
 import { Redis } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 
@@ -298,9 +298,9 @@ export class YKafkaRuntime {
 
       // 3. Merge and Send
       if (updatesToMerge.length > 0) {
-        // Merge all updates into a single update using Ywasm (Rust-based)
-        // This is significantly faster than JS implementation for large updates
-        const mergedUpdate = mergeUpdatesV1(updatesToMerge);
+        const mergedUpdate = mergeUpdatesV2(
+          updatesToMerge.map((update) => new Uint8Array(update)),
+        );
 
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, ProtocolMessageType.Sync);

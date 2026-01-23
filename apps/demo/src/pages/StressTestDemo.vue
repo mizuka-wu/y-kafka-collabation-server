@@ -39,12 +39,12 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue';
 import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
-import { YDoc } from 'ywasm';
+import { Doc } from '@y/y';
 
 const clients = ref<any[]>([]);
 
 const addClient = () => {
-  const doc = new YDoc({});
+  const doc = new Doc({});
   const clientId = clients.value.length + 1;
   const provider = new YKafkaCollabationProvider(
     'http://localhost:3000',

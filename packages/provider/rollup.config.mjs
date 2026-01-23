@@ -6,7 +6,6 @@ export default config({
     '@y/protocols',
     'y-protocols',
     'yjs',
-    'ywasm',
     'socket.io-client',
     'lib0',
     'lib0/buffer'

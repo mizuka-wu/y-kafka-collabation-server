@@ -2,13 +2,10 @@
 
 用于 `y-kafka-collabation-server` 的高性能 Yjs provider 客户端。它采用了分层架构来处理连接、协议处理和文档状态管理，并支持 **多路复用 (Multiplexing)** 和 **Kafka Offsets**。
 
-由 `ywasm` 提供接近原生的性能支持。
-
 ## 特性
 
 - **多路复用 (Multiplexing)**：通过单个 Socket.IO 连接管理多个 `YDoc` 实例。
 - **Kafka Offsets**：跟踪每条消息的 Kafka offset，以确保严格的顺序和一致性。
-- **高性能**：使用 `ywasm` (Yjs 的 WASM 实现) 进行关键操作 (Sync, Awareness)。
 - **分层架构**：传输层、协议层和状态管理层关注点分离。
 - **类型安全**：完整的 TypeScript 支持和类型化事件。
 
@@ -25,7 +22,6 @@ Provider 采用三层架构构建：
 2. **处理层 (`ProtocolProcessing`)**
     - 继承自 `ProtocolConnection`。
     - 实现 Yjs 协议逻辑 (Sync, Awareness, Auth, Control)。
-    - 使用 `ywasm` 原生函数 (`applyUpdate`, `encodeStateAsUpdate`) 进行零开销处理。
     - 使用最新接收到的 Kafka offset 更新 `DocState`。
 
 3. **管理层 (`ProtocolManager`)**
@@ -44,7 +40,7 @@ Provider 采用三层架构构建：
     - `docId` (目标文档)
     - `offset` (Kafka offset)
 3. **`ProtocolProcessing`** 处理特定的协议消息：
-    - **Sync**：使用 `ywasm` 将更新应用到 `YDoc`。
+    - **Sync**：使用 `yjs` 将更新应用到 `YDoc`。
     - **Awareness**：更新 awareness 状态。
 4. **`ProtocolManager`** 确保更新应用到通过 `docId` 找到的正确 `YDoc` 实例。
 
@@ -59,10 +55,10 @@ Provider 采用三层架构构建：
 
 ```typescript
 import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
-import { YDoc } from 'ywasm';
+import { Doc } from '@y/y';
 
-// 1. 创建 YDoc (ywasm)
-const doc = new YDoc();
+// 1. 创建 YDoc
+const doc = new Doc();
 
 // 2. 初始化 provider
 // 自动连接并注册 doc
@@ -125,6 +121,5 @@ provider.on('status', ({ status }) => {
 
 ## 依赖
 
-- `ywasm`: CRDT 的 WASM 实现。
 - `socket.io-client`: 传输层。
 - `@y-kafka-collabation-server/protocol`: 共享协议定义。

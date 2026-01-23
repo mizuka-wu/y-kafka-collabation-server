@@ -40,8 +40,7 @@
     "socket.io": "^4.8.0",
     "typeorm": "^0.3.28",
     "y-protocols": "^1.0.6-3",
-    "yjs": "^13.6.28",
-    "ywasm": "^0.25.0"
+    "yjs": "^13.6.28"
   },
   "optionalDependencies": {
     "@aws-sdk/client-s3": "^3.684.0",

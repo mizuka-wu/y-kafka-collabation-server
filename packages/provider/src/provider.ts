@@ -1,5 +1,6 @@
 import { ProtocolManager } from './manager';
-import { YDoc, Awareness } from 'ywasm';
+import { Doc } from '@y/y';
+import { Awareness } from '@y/protocols/awareness';
 
 export interface YKafkaCollabationProviderOptions {
   connect?: boolean;
@@ -23,13 +24,13 @@ export class YKafkaCollabationProvider extends ProtocolManager {
   /**
    * @param {string} serverUrl
    * @param {string} roomname
-   * @param {YDoc} doc
+   * @param {Doc} doc
    * @param {YKafkaCollabationProviderOptions} [options]
    */
   constructor(
     serverUrl: string,
     roomname: string,
-    doc: YDoc,
+    doc: Doc,
     {
       connect = true,
       docId: optionDocId,

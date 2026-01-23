@@ -35,7 +35,6 @@
     "@y-kafka-collabation-server/transport": "workspace:*",
     "buffer": "6.0.3",
     "lib0": "^0.2.88",
-    "socket.io-client": "4.8.3",
-    "ywasm": "^0.25.0"
+    "socket.io-client": "4.8.3"
   }
 }

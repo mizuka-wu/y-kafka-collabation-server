@@ -1,10 +1,6 @@
-import {
-  Awareness,
-  YDoc,
-  encodeAwarenessUpdate,
-  encodeStateVector,
-} from 'ywasm';
+import { Doc, encodeStateVector } from '@y/y';
 import * as encoding from 'lib0/encoding';
+import { Awareness, encodeAwarenessUpdate } from '@y/protocols/awareness';
 import { ProtocolProcessing } from './processing';
 import { DocState, ProtocolProviderOptions, ProviderStatus } from './types';
 import { ProtocolMessageType } from '@y-kafka-collabation-server/protocol';
@@ -15,7 +11,7 @@ export class ProtocolManager extends ProtocolProcessing {
   // To look up state by docId (for incoming network messages)
   private docs: Map<string, DocState> = new Map();
   // To look up state by Y.Doc instance (for local updates)
-  private docStates: WeakMap<YDoc, DocState> = new WeakMap();
+  private docStates: WeakMap<Doc, DocState> = new WeakMap();
   private _checkInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: ProtocolProviderOptions) {
@@ -80,15 +76,14 @@ export class ProtocolManager extends ProtocolProcessing {
    * Registers a Y.Doc to be managed by this provider.
    */
   addDoc(
-    doc: YDoc,
+    doc: Doc,
     options: { docId?: string; parentId?: string; awareness?: Awareness } = {},
   ) {
     if (this.docStates.has(doc)) {
       return; // Already registered
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const docId = options.docId || (doc as any).guid || String(doc.id);
+    const docId = options.docId || doc.guid;
     const parentId = options.parentId;
 
     const awareness = options.awareness || new Awareness(doc);
@@ -170,7 +165,7 @@ export class ProtocolManager extends ProtocolProcessing {
   /**
    * Unregisters a Y.Doc.
    */
-  removeDoc(doc: YDoc) {
+  removeDoc(doc: Doc) {
     const state = this.docStates.get(doc);
     if (state) {
       this.cleanupDocState(state);

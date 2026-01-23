@@ -41,12 +41,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { YKafkaCollabationProvider } from '@y-kafka-collabation-server/provider';
-import { YDoc } from 'ywasm';
+import { Doc } from '@y/y';
 
 const status = ref('disconnected');
 
 onMounted(() => {
-  const doc = new YDoc({});
+  const doc = new Doc({});
   // 使用 http 协议，provider 内部会处理 socket.io 连接
   const provider = new YKafkaCollabationProvider(
     'http://localhost:3000',
@@ -71,7 +71,7 @@ onMounted(() => {
 
   onUnmounted(() => {
     provider.destroy();
-    doc.free();
+    doc.destroy();
   });
 });
 

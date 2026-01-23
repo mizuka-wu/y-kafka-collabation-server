@@ -1,6 +1,7 @@
 import type { Socket, ManagerOptions, SocketOptions } from 'socket.io-client';
-import { YDoc, Awareness } from 'ywasm';
-import { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
+import type { Doc } from '@y/y';
+import type { Awareness } from '@y/protocols/awareness';
+import type { ProtocolMessageMetadata } from '@y-kafka-collabation-server/protocol';
 
 export interface ProtocolProviderOptions {
   /**
@@ -64,7 +65,7 @@ export type ProviderEvents = {
 };
 
 export interface DocState {
-  doc: YDoc;
+  doc: Doc;
   docId: string;
   parentId?: string;
   synced: boolean;

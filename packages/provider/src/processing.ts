@@ -1,4 +1,5 @@
-import { applyAwarenessUpdate, applyUpdate, encodeStateAsUpdate } from 'ywasm';
+import { applyUpdate, encodeStateAsUpdate } from '@y/y';
+import { applyAwarenessUpdate } from '@y/protocols/awareness';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as authProtocol from '@y/protocols/auth';

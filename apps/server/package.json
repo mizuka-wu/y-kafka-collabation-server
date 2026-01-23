@@ -41,8 +41,7 @@
     "y-protocols": "^1.0.6-3",
     "yaml": "^2.8.2",
     "yjs": "^13.6.28",
-    "yrs": "^1.0.8",
-    "ywasm": "^0.25.0"
+    "yrs": "^1.0.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
